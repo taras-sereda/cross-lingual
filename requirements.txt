@@ -1,0 +1,2 @@
+gradio
+-e git+ssh://git@github.com/taras-sereda/tortoise-tts.git@taras#egg=tortoise
