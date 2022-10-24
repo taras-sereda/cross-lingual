@@ -5,7 +5,7 @@ import librosa
 from tortoise.api import TextToSpeech
 from tortoise.utils.text import split_and_recombine_text
 
-# tts = TextToSpeech()
+tts = TextToSpeech()
 seed = 42
 candidates = 1
 
@@ -24,23 +24,10 @@ def read(text):
         yield text, (sample_rate, gen.numpy())
 
 
-def dummy_read(text, history):
-    history = history or []
-    texts = split_and_recombine_text(text)
-    for text in texts:
-        gen, sample_rate = librosa.load(librosa.example('brahms'))
-        history.append((text, (sample_rate, gen)))
-        texts_to_display = []
-        for elem in history:
-            texts_to_display.append(elem[0])
-        yield ' '.join(texts_to_display), (sample_rate, gen), history
-        sleep(1)
-
-
-demo = gr.Interface(fn=dummy_read,
+demo = gr.Interface(fn=read,
                     inputs=[gr.Textbox(value="add your text here"), gr.State()],
                     outputs=['text', 'audio', gr.State()],
                     allow_flagging="never")
 
 demo.queue()
-demo.launch()
+demo.launch(debug=True)
