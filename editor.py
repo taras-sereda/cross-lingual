@@ -2,8 +2,10 @@ import os
 import warnings
 
 import gradio as gr
+import soundfile as sf
 from tortoise.api import TextToSpeech
 from tortoise.utils.text import split_and_recombine_text
+from tortoise.utils.audio import load_voices
 
 tts = TextToSpeech()
 seed = 42
@@ -12,14 +14,27 @@ model_sample_rate = 24_000
 
 MAX_UTTERANCE = 20
 
+voices_dir = os.path.join(os.path.dirname(__file__), 'user_data/voices')
 
-def read(text, audio_tuple):
+
+def read(text, audio_tuple, speaker_name, speaker_vector):
     sample_rate, audio = audio_tuple
+
+    # write audio file
+    speaker_dir = os.path.join(voices_dir, speaker_name)
+    os.makedirs(speaker_dir, exist_ok=True)
+    audio_file_name = os.path.join(speaker_dir, '0.wav')
+    sf.write(audio_file_name, audio, sample_rate)
+
+    # read audio file
+    voice_samples, conditioning_latents = load_voices([speaker_name], [voices_dir])
+    speaker_vector['voice_samples'] = voice_samples
+    speaker_vector['conditioning_latents'] = conditioning_latents
 
     texts = split_and_recombine_text(text)
     res = []
     for text in texts:
-        gen = tts.tts_with_preset(text, voice_samples=None, conditioning_latents=None,
+        gen = tts.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
                                   preset='ultra_fast', k=candidates, use_deterministic_seed=seed)
         res.append(gr.Textbox.update(value=text, visible=True))
         res.append(gr.Audio.update(value=(model_sample_rate, gen.cpu().numpy()), visible=True))
@@ -36,23 +51,29 @@ def read(text, audio_tuple):
     else:
         warnings.warn("Output is clipped!")
         pass
-    print('delta', delta)
-    return [len(texts)] + res
+    return [speaker_vector, len(texts)] + res
 
 
-def reread(text):
-    gen = tts.tts_with_preset(text, voice_samples=None, conditioning_latents=None,
+def reread(text, speaker_vector):
+    voice_samples = speaker_vector['voice_samples']
+    conditioning_latents = speaker_vector['conditioning_latents']
+
+    gen = tts.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
                               preset='ultra_fast', k=candidates, use_deterministic_seed=seed)
     return model_sample_rate, gen.cpu().numpy()
 
 
 with gr.Blocks() as block:
+    speaker_vector = gr.State(dict())
+    outputs = []
+    outputs.append(speaker_vector)
     with gr.Row() as row0:
         with gr.Column() as col0:
-            text = gr.Text(label='Text for synthesis')
+            text = gr.Textbox(label='Text for synthesis')
             reference_audio = gr.Audio(label='reference audio')
+            speaker_name = gr.Textbox(label='Speaker name')
             button = gr.Button(value='Go!')
-            outputs = [gr.Number(label='number of utterances')]
+            outputs.append(gr.Number(label='number of utterances'))
 
         with gr.Column(variant='compact') as col1:
             for i in range(MAX_UTTERANCE):
@@ -60,11 +81,11 @@ with gr.Blocks() as block:
                 audio = gr.Audio(label=f'audio_{i}', visible=False)
 
                 try_again = gr.Button(value='try again', visible=False)
-                try_again.click(fn=reread, inputs=[utterance], outputs=[audio])
+                try_again.click(fn=reread, inputs=[utterance, speaker_vector], outputs=[audio])
 
                 outputs.extend([utterance, audio, try_again])
 
-        button.click(fn=read, inputs=[text, reference_audio], outputs=outputs)
+        button.click(fn=read, inputs=[text, reference_audio, speaker_name, speaker_vector], outputs=outputs)
 
     example_text = """
     Everything was perfectly swell.
