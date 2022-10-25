@@ -3,6 +3,8 @@ import warnings
 
 import gradio as gr
 import soundfile as sf
+import torch
+
 from tortoise.api import TextToSpeech
 from tortoise.utils.text import split_and_recombine_text
 from tortoise.utils.audio import load_voices
@@ -15,6 +17,11 @@ model_sample_rate = 24_000
 MAX_UTTERANCE = 20
 
 voices_dir = os.path.join(os.path.dirname(__file__), 'user_data/voices')
+
+if torch.cuda.is_available():
+    preset = 'standard'
+else:
+    preset = 'ultra_fast'
 
 
 def read(text, audio_tuple, speaker_name, speaker_vector):
@@ -35,7 +42,7 @@ def read(text, audio_tuple, speaker_name, speaker_vector):
     res = []
     for text in texts:
         gen = tts.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
-                                  preset='ultra_fast', k=candidates, use_deterministic_seed=seed)
+                                  preset=preset, k=candidates, use_deterministic_seed=seed)
         res.append(gr.Textbox.update(value=text, visible=True))
         res.append(gr.Audio.update(value=(model_sample_rate, gen.cpu().numpy()), visible=True))
         res.append(gr.Button.update(visible=True))
@@ -59,7 +66,7 @@ def reread(text, speaker_vector):
     conditioning_latents = speaker_vector['conditioning_latents']
 
     gen = tts.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
-                              preset='ultra_fast', k=candidates, use_deterministic_seed=seed)
+                              preset=preset, k=candidates, use_deterministic_seed=seed)
     return model_sample_rate, gen.cpu().numpy()
 
 
@@ -71,7 +78,7 @@ with gr.Blocks() as block:
         with gr.Column() as col0:
             text = gr.Textbox(label='Text for synthesis')
             reference_audio = gr.Audio(label='reference audio')
-            speaker_name = gr.Textbox(label='Speaker name')
+            speaker_name = gr.Textbox(value="joe", label='Speaker name')
             button = gr.Button(value='Go!')
             outputs.append(gr.Number(label='number of utterances'))
 
@@ -117,3 +124,10 @@ with gr.Blocks() as block:
     gr.Examples([os.path.join(os.path.dirname(__file__), 'data/VLND2ptAOio.clip.24000.wav')], [reference_audio])
 
 block.launch()
+
+# TODO add speaker preprocessing
+# TODO add audio saving
+# TODO add combination of synthesized segments
+# TODO add playground, where one can play with different ways of pronunciation of a particular word
+# TODO add readme, and usage scenario on top of the page.
+# TODO integrate whisper for judging of synthesis quality.
