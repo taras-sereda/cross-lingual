@@ -8,9 +8,18 @@ from tortoise.utils.text import split_and_recombine_text
 MAX_UTTERANCE = 20
 
 
-def dummy_read(text, audio_tuple):
+def dummy_add_speaker(audio_tuple, speaker_name):
     sample_rate, audio = audio_tuple
+    # save data on disk
 
+    # save data in db
+    available_speakers = f"""
+    1. {speaker_name}
+    """
+    return available_speakers
+
+
+def dummy_read(text):
     texts = split_and_recombine_text(text)
     res = []
     for text in texts:
@@ -30,7 +39,7 @@ def dummy_read(text, audio_tuple):
     else:
         warnings.warn("Output is clipped!")
         pass
-    print('delta', delta)
+
     return [len(texts)] + res
 
 
@@ -41,13 +50,26 @@ def dummy_reread(text):
 
 with gr.Blocks() as block:
     with gr.Row() as row0:
-        with gr.Column() as col0:
-            text = gr.Text(label='Text for synthesis')
+        with gr.Column(scale=1) as col0:
             reference_audio = gr.Audio(label='reference audio')
+            speaker_name = gr.Textbox(value="joe", label='Speaker name')
+            add_speaker_button = gr.Button('Add speaker')
+            gr.Markdown("### Available Speakers")
+            available_speakers = gr.Markdown()
+
+            add_speaker_button.click(dummy_add_speaker, inputs=[reference_audio, speaker_name],
+                                     outputs=[available_speakers])
+
+        with gr.Column(scale=1) as col1:
+            button_create = gr.Button("Create!")
+            button_load = gr.Button("Load")
+
+            project_name = gr.Text(label='Project name', placeholder="enter your project name")
+            text = gr.Text(label='Text for synthesis')
             button = gr.Button(value='Go!')
             outputs = [gr.Number(label='number of utterances')]
 
-        with gr.Column(variant='compact') as col1:
+        with gr.Column(scale=1, variant='compact') as col2:
             for i in range(MAX_UTTERANCE):
                 utterance = gr.Textbox(label=f'utterance_{i}', visible=False)
                 audio = gr.Audio(label=f'audio_{i}', visible=False)
@@ -57,7 +79,7 @@ with gr.Blocks() as block:
 
                 outputs.extend([utterance, audio, try_again])
 
-        button.click(fn=dummy_read, inputs=[text, reference_audio], outputs=outputs)
+        button.click(fn=dummy_read, inputs=[text], outputs=outputs)
 
     example_text = """
     Everything was perfectly swell.
