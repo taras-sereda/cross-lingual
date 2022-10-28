@@ -28,3 +28,5 @@ CxGs9E-QwEA.en-US.vtt
 3. run tortoise for synthesis: `python ~/git-repos/tortoise-tts/tortoise/read.py --textfile /home/taras/one-lang/klopotenko/CxGs9E-QwEA/input_text.txt  --voice klopotenko --output_path .`
 
 4. regex to remove duplicate lines: `^(.*)(\r?\n\1)+$`
+
+5. for db graph vizualization: `brew install graphviz`

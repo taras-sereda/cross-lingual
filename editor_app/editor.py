@@ -16,7 +16,7 @@ model_sample_rate = 24_000
 
 MAX_UTTERANCE = 20
 
-voices_dir = os.path.join(os.path.dirname(__file__), 'user_data/voices')
+voices_dir = os.path.join(os.path.dirname(__file__), '../user_data/voices')
 
 if torch.cuda.is_available():
     preset = 'standard'
@@ -121,7 +121,7 @@ with gr.Blocks() as block:
     gr.Markdown("Text examples")
     gr.Examples([example_text], [text])
     gr.Markdown("Audio examples")
-    gr.Examples([os.path.join(os.path.dirname(__file__), 'data/VLND2ptAOio.clip.24000.wav')], [reference_audio])
+    gr.Examples([os.path.join(os.path.dirname(__file__), '../data/VLND2ptAOio.clip.24000.wav')], [reference_audio])
 
 block.launch()
 

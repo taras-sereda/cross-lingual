@@ -2,3 +2,7 @@ gradio
 -e git+ssh://git@github.com/taras-sereda/tortoise-tts.git@taras#egg=tortoise
 fastapi
 uvicorn
+omegaconf
+sqlalchemy
+sqlalchemy_schemadisplay
+sqlite-utils

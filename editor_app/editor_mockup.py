@@ -1,9 +1,13 @@
-import os.path
 import warnings
 
 import gradio as gr
 import librosa
 from tortoise.utils.text import split_and_recombine_text
+from sqlalchemy.orm import Session
+
+from . import example_text, example_voice_sample_path
+from . import crud
+from .database import SessionLocal
 
 MAX_UTTERANCE = 20
 
@@ -48,9 +52,19 @@ def dummy_reread(text):
     return sample_rate, gen
 
 
-with gr.Blocks() as block:
+def get_users_gradio():
+    db: Session = SessionLocal()
+    users = crud.get_users(db=db)
+    db.close()
+
+    return [user.email for user in users]
+
+
+with gr.Blocks() as editor:
     with gr.Row() as row0:
         with gr.Column(scale=1) as col0:
+            users = gr.Text(value=get_users_gradio, label='users')
+
             reference_audio = gr.Audio(label='reference audio')
             speaker_name = gr.Textbox(value="joe", label='Speaker name')
             add_speaker_button = gr.Button('Add speaker')
@@ -81,33 +95,7 @@ with gr.Blocks() as block:
 
         button.click(fn=dummy_read, inputs=[text], outputs=outputs)
 
-    example_text = """
-    Everything was perfectly swell.
-    
-    There were no prisons, no slums, no insane asylums, no cripples, no
-    poverty, no wars.
-    
-    All diseases were conquered. So was old age.
-    
-    Death, barring accidents, was an adventure for volunteers.
-    
-    The population of the United States was stabilized at forty-million
-    souls.
-    
-    One bright morning in the Chicago Lying-in Hospital, a man named Edward
-    K. Wehling, Jr., waited for his wife to give birth. He was the only man
-    waiting. Not many people were born a day any more.
-    
-    Wehling was fifty-six, a mere stripling in a population whose average
-    age was one hundred and twenty-nine.
-    
-    X-rays had revealed that his wife was going to have triplets. The
-    children would be his first.
-    
-    """
     gr.Markdown("Text examples")
     gr.Examples([example_text], [text])
     gr.Markdown("Audio examples")
-    gr.Examples([os.path.join(os.path.dirname(__file__), 'data/VLND2ptAOio.clip.24000.wav')], [reference_audio])
-
-block.launch()
+    gr.Examples([example_voice_sample_path], [reference_audio])
