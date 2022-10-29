@@ -1,8 +1,12 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
 class ProjectBase(BaseModel):
-    name: str
+    title: str
+    text: str
+    date_created: datetime
 
 
 class ProjectCreate(ProjectBase):
@@ -12,6 +16,8 @@ class ProjectCreate(ProjectBase):
 class Project(ProjectBase):
     id: int
     owner_id: int
+    date_completed: datetime | None = None
+    completed: bool
 
     class Config:
         orm_mode = True

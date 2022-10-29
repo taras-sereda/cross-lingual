@@ -1,5 +1,5 @@
 import pathlib
-from sqlalchemy import Column, Integer, String, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Boolean
 from sqlalchemy.orm import relationship
 
 
@@ -43,11 +43,14 @@ class Project(Base):
     __tablename__ = "project"
 
     id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    text = Column(Text, nullable=False)
+    date_created = Column(DateTime, nullable=False)
+    date_completed = Column(DateTime)
+    completed = Column(Boolean, default=False)
     owner_id = Column(Integer, ForeignKey("user.id"))
     owner = relationship("User", back_populates="projects")
-#     utterance = relationship("Utterance")
-#     speaker = relationship("Speaker", secondary=project_to_speaker, back_populates="projects")
+    utterances = relationship("Utterance", back_populates="project")
 
 
 class Speaker(Base):
@@ -57,8 +60,7 @@ class Speaker(Base):
     name = Column(String, nullable=False)
     owner_id = Column(Integer, ForeignKey("user.id"))
     owner: User = relationship("User", back_populates="speakers", lazy='joined')
-    # utterance = relationship("Utterance")
-    # project = relationship("Project", secondary=project_to_speaker, back_populates="speakers")
+    utterances = relationship("Utterance", back_populates="speaker")
 
     def get_speaker_data_root(self) -> pathlib.Path:
         speaker_dir_path = self.owner.get_user_data_root().joinpath('voices', f'{self.id}_{self.name.lower()}')
@@ -68,13 +70,14 @@ class Speaker(Base):
         return speaker_dir_path
 
 
-# class Utterance(Base):
-#     __tablename__ = "utterance"
-#
-#     id = Column(Integer, primary_key=True)
-#     project_id = Column(Integer, ForeignKey("project.id"))
-#     speaker_id = Column(Integer, ForeignKey("speaker.id"))
-#     text = Column(String)
-#     audio_path = Column(String)
-#
-#
+class Utterance(Base):
+    __tablename__ = "utterance"
+
+    id = Column(Integer, primary_key=True)
+    text = Column(String, nullable=False)
+    audio_path = Column(String, nullable=False)
+    project_id = Column(Integer, ForeignKey("project.id"))
+    speaker_id = Column(Integer, ForeignKey("speaker.id"))
+    project = relationship("Project", back_populates="utterances")
+    speaker = relationship("Speaker", back_populates="utterances")
+

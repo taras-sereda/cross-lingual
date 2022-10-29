@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from . import crud
+from . import crud, schemas
 from .database import SessionLocal
 
 
@@ -18,3 +18,11 @@ def create_speaker_gradio(name: str, user_id: int):
     db.close()
 
     return speaker
+
+
+def create_project_gradio(project: schemas.ProjectCreate, user_id: int):
+    db: Session = SessionLocal()
+    db_project = crud.create_project(db, project, user_id)
+    db.close()
+
+    return db_project

@@ -1,18 +1,20 @@
 import warnings
+from datetime import datetime
 
 import gradio as gr
 import librosa
 import soundfile as sf
 from tortoise.utils.text import split_and_recombine_text
 
-from . import example_text, example_voice_sample_path
-from .crud_gradio import get_user_by_mail_gradio, create_speaker_gradio
-from .models import User
+from . import example_text, example_voice_sample_path, schemas
+from .crud_gradio import get_user_by_mail_gradio, create_speaker_gradio, create_project_gradio
+from .models import User, Project
+
 
 MAX_UTTERANCE = 20
 
 
-def dummy_add_speaker(audio_tuple, speaker_name, user_email):
+def add_speaker(audio_tuple, speaker_name, user_email):
     user: User = get_user_by_mail_gradio(user_email)
     if not user:
         return f"User {user_email} not found. Provide valid email"
@@ -35,7 +37,14 @@ def get_speakers(user_email):
     return [speaker.name for speaker in user.speakers]
 
 
-def dummy_read(text):
+def dummy_read(title, text, user_email):
+    user: User = get_user_by_mail_gradio(user_email)
+    if not user:
+        return f"User {user_email} not found. Provide valid email"
+
+    data = schemas.ProjectCreate(title=title, text=text, date_created=datetime.now())
+    project = create_project_gradio(data, user.id)
+
     texts = split_and_recombine_text(text)
     res = []
     for text in texts:
@@ -75,14 +84,14 @@ with gr.Blocks() as editor:
             speakers = gr.Textbox(label='speakers')
             errors = gr.Textbox(label='error messages')
             get_speakers_button = gr.Button('Get speakers')
-            add_speaker_button.click(dummy_add_speaker, inputs=[reference_audio, speaker_name, user_email], outputs=[errors])
+            add_speaker_button.click(add_speaker, inputs=[reference_audio, speaker_name, user_email], outputs=[errors])
             get_speakers_button.click(get_speakers, inputs=[user_email], outputs=[speakers])
 
         with gr.Column(scale=1) as col1:
             button_create = gr.Button("Create!")
             button_load = gr.Button("Load")
 
-            project_name = gr.Text(label='Project name', placeholder="enter your project name")
+            title = gr.Text(label='Title', placeholder="enter your project title", value="2_B_R_0_2_B")
             text = gr.Text(label='Text for synthesis')
             button = gr.Button(value='Go!')
             outputs = [gr.Number(label='number of utterances')]
@@ -97,7 +106,7 @@ with gr.Blocks() as editor:
 
                 outputs.extend([utterance, audio, try_again])
 
-        button.click(fn=dummy_read, inputs=[text], outputs=outputs)
+        button.click(fn=dummy_read, inputs=[title, text, user_email], outputs=outputs)
 
     gr.Markdown("Text examples")
     gr.Examples([example_text], [text])

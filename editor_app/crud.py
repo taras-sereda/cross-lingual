@@ -23,9 +23,17 @@ def create_user(db: Session, user: schemas.UserCreate):
     return db_user
 
 
-def create_speaker(db: Session, name, user_id: int):
+def create_speaker(db: Session, name: str, user_id: int):
     db_speaker = models.Speaker(name=name, owner_id=user_id)
     db.add(db_speaker)
     db.commit()
     db.refresh(db_speaker)
     return db_speaker
+
+
+def create_project(db: Session, project: schemas.ProjectCreate, user_id: int):
+    db_project = models.Project(**project.dict(), owner_id=user_id)
+    db.add(db_project)
+    db.commit()
+    db.refresh(db_project)
+    return db_project
