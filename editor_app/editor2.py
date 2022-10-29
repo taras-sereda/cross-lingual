@@ -2,22 +2,34 @@ import warnings
 
 import gradio as gr
 import librosa
+import soundfile as sf
 from tortoise.utils.text import split_and_recombine_text
 
 from . import example_text, example_voice_sample_path
+from .crud_gradio import get_user_by_mail_gradio, create_speaker_gradio
+from .models import User
 
 MAX_UTTERANCE = 20
 
 
-def dummy_add_speaker(audio_tuple, speaker_name):
-    sample_rate, audio = audio_tuple
-    # save data on disk
+def dummy_add_speaker(audio_tuple, speaker_name, user_email):
+    user: User = get_user_by_mail_gradio(user_email)
+    if not user:
+        return f"User {user_email} not found. Provide valid email"
 
-    # save data in db
-    available_speakers = f"""
-    1. {speaker_name}
-    """
-    return available_speakers
+    # write data to db
+    speaker = create_speaker_gradio(speaker_name, user.id)
+
+    # save data on disk
+    wav_path = speaker.get_speaker_data_root().joinpath('1.wav')
+    sample_rate, audio = audio_tuple
+    sf.write(wav_path, audio, sample_rate)
+
+
+def get_speakers(user_email):
+    user: User = get_user_by_mail_gradio(user_email)
+    # return all available speakers
+    return [speaker.name for speaker in user.speakers]
 
 
 def dummy_read(text):
@@ -52,14 +64,15 @@ def dummy_reread(text):
 with gr.Blocks() as editor:
     with gr.Row() as row0:
         with gr.Column(scale=1) as col0:
-            reference_audio = gr.Audio(label='reference audio')
-            speaker_name = gr.Textbox(value="joe", label='Speaker name')
-            add_speaker_button = gr.Button('Add speaker')
-            gr.Markdown("### Available Speakers")
-            available_speakers = gr.Markdown()
+            user_email = gr.Text(label='user', placeholder='Enter user email', value='taras.y.sereda@proton.me')
 
-            add_speaker_button.click(dummy_add_speaker, inputs=[reference_audio, speaker_name],
-                                     outputs=[available_speakers])
+            reference_audio = gr.Audio(label='reference audio')
+            speaker_name = gr.Textbox(label='Speaker name', placeholder='Enter speaker name')
+            add_speaker_button = gr.Button('Add speaker')
+            speakers = gr.Textbox(label='speakers')
+            get_speakers_button = gr.Button('Get speakers')
+            add_speaker_button.click(dummy_add_speaker, inputs=[reference_audio, speaker_name, user_email], outputs=[])
+            get_speakers_button.click(get_speakers, inputs=[user_email], outputs=[speakers])
 
         with gr.Column(scale=1) as col1:
             button_create = gr.Button("Create!")

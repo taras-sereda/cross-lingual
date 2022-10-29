@@ -19,6 +19,7 @@ class Project(ProjectBase):
 
 class UserBase(BaseModel):
     email: str
+    name: str
 
 
 class UserCreate(UserBase):
@@ -28,6 +29,22 @@ class UserCreate(UserBase):
 class User(UserBase):
     id: int
     projects: list[Project] = []
+
+    class Config:
+        orm_mode = True
+
+
+class SpeakerBase(BaseModel):
+    name: str
+
+
+class SpeakerCreate(SpeakerBase):
+    pass
+
+
+class Speaker(SpeakerBase):
+    id: int
+    owner_id: int
 
     class Config:
         orm_mode = True
