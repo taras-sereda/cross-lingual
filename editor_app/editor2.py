@@ -17,6 +17,9 @@ def dummy_add_speaker(audio_tuple, speaker_name, user_email):
     if not user:
         return f"User {user_email} not found. Provide valid email"
 
+    if speaker_name in get_speakers(user_email):
+        return f"Speaker {speaker_name} already exists!"
+
     # write data to db
     speaker = create_speaker_gradio(speaker_name, user.id)
 
@@ -70,8 +73,9 @@ with gr.Blocks() as editor:
             speaker_name = gr.Textbox(label='Speaker name', placeholder='Enter speaker name')
             add_speaker_button = gr.Button('Add speaker')
             speakers = gr.Textbox(label='speakers')
+            errors = gr.Textbox(label='error messages')
             get_speakers_button = gr.Button('Get speakers')
-            add_speaker_button.click(dummy_add_speaker, inputs=[reference_audio, speaker_name, user_email], outputs=[])
+            add_speaker_button.click(dummy_add_speaker, inputs=[reference_audio, speaker_name, user_email], outputs=[errors])
             get_speakers_button.click(get_speakers, inputs=[user_email], outputs=[speakers])
 
         with gr.Column(scale=1) as col1:
