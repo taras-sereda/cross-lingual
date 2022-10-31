@@ -30,3 +30,8 @@ CxGs9E-QwEA.en-US.vtt
 4. regex to remove duplicate lines: `^(.*)(\r?\n\1)+$`
 
 5. for db graph vizualization: `brew install graphviz`
+
+6. Launching from project root directory:
+
+- fastAPI: `uvicorn editor_app.main:app --reload`
+- standalone: `gradio editor_app/editor2.py editor`

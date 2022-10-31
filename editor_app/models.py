@@ -6,21 +6,6 @@ from sqlalchemy.orm import relationship
 from .database import Base, cfg
 
 
-# project_to_speaker = Table(
-#     "project_to_speaker",
-#     Base.metadata,
-#     Column("project_id", ForeignKey("project.id"), primary_key=True),
-#     Column("speaker_id", ForeignKey("speaker.id"), primary_key=True),
-# )
-#
-# user_to_speaker = Table(
-#     "user_to_speaker",
-#     Base.metadata,
-#     Column("user_id", ForeignKey("user.id"), primary_key=True),
-#     Column("speaker_id", ForeignKey("speaker.id"), primary_key=True),
-# )
-
-
 class User(Base):
     __tablename__ = "user"
 
@@ -47,10 +32,15 @@ class Project(Base):
     text = Column(Text, nullable=False)
     date_created = Column(DateTime, nullable=False)
     date_completed = Column(DateTime)
-    completed = Column(Boolean, default=False)
     owner_id = Column(Integer, ForeignKey("user.id"))
     owner = relationship("User", back_populates="projects")
     utterances = relationship("Utterance", back_populates="project")
+
+    def get_project_data_root(self) -> pathlib.Path:
+        project_path: pathlib.Path = self.owner.get_user_data_root().joinpath('projects', self.title.strip())
+        if not project_path.exists():
+            project_path.mkdir(parents=True, exist_ok=True)
+        return project_path
 
 
 class Speaker(Base):
@@ -75,9 +65,13 @@ class Utterance(Base):
 
     id = Column(Integer, primary_key=True)
     text = Column(String, nullable=False)
-    audio_path = Column(String, nullable=False)
+    utterance_idx = Column(Integer, nullable=False)
+    date_started = Column(DateTime, nullable=False)
+    date_completed = Column(DateTime)
     project_id = Column(Integer, ForeignKey("project.id"))
     speaker_id = Column(Integer, ForeignKey("speaker.id"))
     project = relationship("Project", back_populates="utterances")
     speaker = relationship("Speaker", back_populates="utterances")
 
+    def get_audio_path(self) -> pathlib.Path:
+        return self.project.get_project_data_root().joinpath(f'{self.utterance_idx}.wav')

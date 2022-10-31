@@ -4,55 +4,91 @@ from datetime import datetime
 import gradio as gr
 import librosa
 import soundfile as sf
+from sqlalchemy.orm import Session
 from tortoise.utils.text import split_and_recombine_text
 
-from . import example_text, example_voice_sample_path, schemas
-from .crud_gradio import get_user_by_mail_gradio, create_speaker_gradio, create_project_gradio
-from .models import User, Project
-
+from . import example_text, example_voice_sample_path, schemas, crud
+from .database import SessionLocal
+from .models import User, Project, Utterance
 
 MAX_UTTERANCE = 20
 
 
 def add_speaker(audio_tuple, speaker_name, user_email):
-    user: User = get_user_by_mail_gradio(user_email)
+    db: Session = SessionLocal()
+    user: User = crud.get_user_by_email(db, user_email)
     if not user:
-        return f"User {user_email} not found. Provide valid email"
+        raise Exception(f"User {user_email} not found. Provide valid email")
 
-    if speaker_name in get_speakers(user_email):
-        return f"Speaker {speaker_name} already exists!"
+    if speaker_name in get_speakers(db, user_email):
+        raise Exception(f"Speaker {speaker_name} already exists!")
 
     # write data to db
-    speaker = create_speaker_gradio(speaker_name, user.id)
+    speaker = crud.create_speaker(db, speaker_name, user.id)
 
     # save data on disk
     wav_path = speaker.get_speaker_data_root().joinpath('1.wav')
     sample_rate, audio = audio_tuple
     sf.write(wav_path, audio, sample_rate)
+    db.close()
 
 
-def get_speakers(user_email):
-    user: User = get_user_by_mail_gradio(user_email)
+def get_speakers(db, user_email):
+    user: User = crud.get_user_by_email(db, user_email)
     # return all available speakers
     return [speaker.name for speaker in user.speakers]
 
 
 def dummy_read(title, text, user_email):
-    user: User = get_user_by_mail_gradio(user_email)
+    db: Session = SessionLocal()
+    user: User = crud.get_user_by_email(db, user_email)
     if not user:
-        return f"User {user_email} not found. Provide valid email"
+        raise Exception(f"User {user_email} not found. Provide valid email")
+    if crud.get_project_by_title(db, title, user.id):
+        raise Exception(f"Project {title} already exists! Try to load it")
 
-    data = schemas.ProjectCreate(title=title, text=text, date_created=datetime.now())
-    project = create_project_gradio(data, user.id)
+    project_data = schemas.ProjectCreate(title=title, text=text, date_created=datetime.now())
 
-    texts = split_and_recombine_text(text)
-    res = []
-    for text in texts:
+    project = crud.create_project(db, project_data, user.id)
+
+    texts = split_and_recombine_text(project.text)
+    speaker_name = 'joe_rogan'
+    unique_speakers_dict = {
+        speaker_name: crud.get_speaker_by_name(db, speaker_name, user.id)
+    }
+
+    for utter_idx, text in enumerate(texts):
         gen, sample_rate = librosa.load(librosa.example('brahms'))
-        res.append(gr.Textbox.update(value=text, visible=True))
+
+        utterance_data = schemas.UtteranceCreate(text=text, utterance_idx=utter_idx, date_started=datetime.now())
+        utterance: Utterance = crud.create_utterance(db, utterance_data, project.id, unique_speakers_dict[speaker_name].id)
+        sf.write(utterance.get_audio_path(), gen, sample_rate)
+
+        # TODO here synthesis should be started
+        utterance.date_completed = datetime.now()
+
+    res = load(project, db=db)
+
+    project.date_completed = datetime.now()
+    db.close()
+    return [len(texts)] + res
+
+
+def load(project: str | Project, user_email: str | None = None, db: Session | None = None):
+    if not db:
+        db = SessionLocal()
+    if isinstance(project, str):
+        user: User = crud.get_user_by_email(db, user_email)
+        project = crud.get_project_by_title(db, project, user.id)
+
+    res = []
+    for utterance in project.utterances:
+        res.append(gr.Textbox.update(value=utterance.text, visible=True))
+        gen, sample_rate = sf.read(utterance.get_audio_path())
         res.append(gr.Audio.update(value=(sample_rate, gen), visible=True))
         res.append(gr.Button.update(visible=True))
-    n_utterance = len(texts)
+
+    n_utterance = len(project.utterances)
 
     # padding
     if (delta := MAX_UTTERANCE - n_utterance) > 0:
@@ -63,9 +99,7 @@ def dummy_read(title, text, user_email):
     # clipping
     else:
         warnings.warn("Output is clipped!")
-        pass
-
-    return [len(texts)] + res
+    return res
 
 
 def dummy_reread(text):
@@ -112,3 +146,7 @@ with gr.Blocks() as editor:
     gr.Examples([example_text], [text])
     gr.Markdown("Audio examples")
     gr.Examples([example_voice_sample_path], [reference_audio])
+
+
+if __name__ == '__main__':
+    editor.launch(debug=True)

@@ -17,7 +17,26 @@ class Project(ProjectBase):
     id: int
     owner_id: int
     date_completed: datetime | None = None
-    completed: bool
+
+    class Config:
+        orm_mode = True
+
+
+class UtteranceBase(BaseModel):
+    text: str
+    utterance_idx: int
+    date_started: datetime
+
+
+class UtteranceCreate(UtteranceBase):
+    pass
+
+
+class Utterance(UtteranceBase):
+    id: int
+    project_id: int
+    speaker_id: int
+    date_completed: datetime | None = None
 
     class Config:
         orm_mode = True
