@@ -71,7 +71,7 @@ class Utterance(Base):
     project_id = Column(Integer, ForeignKey("project.id"))
     speaker_id = Column(Integer, ForeignKey("speaker.id"))
     project = relationship("Project", back_populates="utterances")
-    speaker = relationship("Speaker", back_populates="utterances")
+    speaker = relationship("Speaker", back_populates="utterances", lazy="joined")
 
     def get_audio_path(self) -> pathlib.Path:
         return self.project.get_project_data_root().joinpath(f'{self.utterance_idx}.wav')

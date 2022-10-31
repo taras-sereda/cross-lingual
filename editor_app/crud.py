@@ -54,3 +54,19 @@ def create_utterance(db: Session, utterance: schemas.UtteranceCreate, project_id
     db.commit()
     db.refresh(db_utterance)
     return db_utterance
+
+
+def get_utterance(db: Session, utterance_idx: int, project_id: int):
+    return db.query(models.Utterance).filter(
+        and_(models.Utterance.utterance_idx == utterance_idx,
+             models.Utterance.project_id == project_id)).first()
+
+
+def update_any_db_row(db: Session, db_row, **kwargs):
+    columns = db_row.__mapper__.attrs.keys()
+    for k, v in kwargs.items():
+        if k in columns:
+            setattr(db_row, k, v)
+    db.commit()
+    db.refresh(db_row)
+    return db_row
