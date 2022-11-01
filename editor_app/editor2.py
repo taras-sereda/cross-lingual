@@ -2,16 +2,29 @@ import warnings
 from datetime import datetime
 
 import gradio as gr
-import librosa
 import soundfile as sf
+import torch
 from sqlalchemy.orm import Session
+from tortoise.api import TextToSpeech
+from tortoise.utils.audio import load_voices
 from tortoise.utils.text import split_and_recombine_text
 
+from utils import split_on_speaker_change
 from . import example_text, example_voice_sample_path, schemas, crud
 from .database import SessionLocal
 from .models import User, Project, Utterance, Speaker
 
 MAX_UTTERANCE = 20
+
+tts = TextToSpeech()
+seed = 42
+candidates = 1
+sample_rate = 24_000
+
+if torch.cuda.is_available():
+    preset = 'standard'
+else:
+    preset = 'ultra_fast'
 
 
 def add_speaker(audio_tuple, speaker_name, user_email):
@@ -40,7 +53,7 @@ def get_speakers(user_email):
     return [spkr.name for spkr in user.speakers]
 
 
-def dummy_read(title, text, user_email):
+def read(title, raw_text, user_email):
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
     if not user:
@@ -48,30 +61,45 @@ def dummy_read(title, text, user_email):
     if crud.get_project_by_title(db, title, user.id):
         raise Exception(f"Project {title} already exists! Try to load it")
 
-    project_data = schemas.ProjectCreate(title=title, text=text, date_created=datetime.now())
+    speakers_to_features = dict()
+    data = []
+    for spkr_name, spkr_text in split_on_speaker_change(raw_text).items():
+        print(spkr_name, spkr_text)
+        db_speaker: Speaker = crud.get_speaker_by_name(db, spkr_name, user.id)
+        if not db_speaker:
+            raise Exception(f"No such speaker {spkr_name} {db_speaker}")
 
+        # load voice samples and conditioning latents.
+        if db_speaker.name not in speakers_to_features:
+            spkr_data_root = db_speaker.get_speaker_data_root().parent
+            voice_samples, conditioning_latents = load_voices([db_speaker.name], [spkr_data_root])
+            speakers_to_features[db_speaker.name] = {
+                'id': db_speaker.id,
+                'voice_samples': voice_samples,
+                'conditioning_latents': conditioning_latents,}
+
+        texts = split_and_recombine_text(spkr_text)
+        for text in texts:
+            data.append((db_speaker.name, text))
+
+    project_data = schemas.ProjectCreate(title=title, text=raw_text, date_created=datetime.now())
     project = crud.create_project(db, project_data, user.id)
 
-    texts = split_and_recombine_text(project.text)
-    speaker_name = 'joe_rogan'
-    unique_speakers_dict = {
-        speaker_name: crud.get_speaker_by_name(db, speaker_name, user.id)
-    }
+    for idx, (spkr_name, spkr_text) in enumerate(data):
 
-    for utter_idx, text in enumerate(texts):
-        gen, sample_rate = librosa.load(librosa.example('brahms'))
+        gen = tts.tts_with_preset(spkr_text,
+                                  voice_samples=speakers_to_features[spkr_name]['voice_samples'],
+                                  conditioning_latents=speakers_to_features[spkr_name]['conditioning_latents'],
+                                  preset=preset, k=candidates, use_deterministic_seed=seed)
+        gen = gen.cpu().numpy().squeeze()
 
-        utterance_data = schemas.UtteranceCreate(text=text, utterance_idx=utter_idx, date_started=datetime.now())
-        utterance: Utterance = crud.create_utterance(db, utterance_data, project.id, unique_speakers_dict[speaker_name].id)
+        utterance_data = schemas.UtteranceCreate(text=spkr_text, utterance_idx=idx, date_started=datetime.now())
+        utterance: Utterance = crud.create_utterance(db, utterance_data, project.id, speakers_to_features[spkr_name]['id'])
         sf.write(utterance.get_audio_path(), gen, sample_rate)
-
-        # TODO here synthesis should be started
         crud.update_any_db_row(db, utterance, date_completed=datetime.now())
 
     crud.update_any_db_row(db, project, date_completed=datetime.now())
-
     res = load(project, db=db)
-
     db.close()
     return res
 
@@ -79,7 +107,7 @@ def dummy_read(title, text, user_email):
 def load(project: str | Project, user_email: str | None = None, db: Session | None = None):
     #TODO. Think more.
     # This might be dangerous, I'm creating a new db session if there is no one provided and not closing it.
-    # So potentillay after a lot of load calls from UI i'd have orphan sessions, so far this is not harmful though.
+    # So potentially after a lot of load calls from UI i'd have orphan sessions, so far this is not harmful though.
     if not db:
         db = SessionLocal()
     if isinstance(project, str):
@@ -90,7 +118,7 @@ def load(project: str | Project, user_email: str | None = None, db: Session | No
 
         project = crud.get_project_by_title(db, project, user.id)
         if not project:
-            raise Exception(f"no such project {project_name}. Provice valid project title")
+            raise Exception(f"no such project {project_name}. Provide valid project title")
 
     res = []
     for utterance in project.utterances:
@@ -118,7 +146,7 @@ def load(project: str | Project, user_email: str | None = None, db: Session | No
     return res
 
 
-def dummy_reread(title, text, utterance_idx, speaker_name, user_email):
+def reread(title, text, utterance_idx, speaker_name, user_email):
     utterance_idx = int(utterance_idx)
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
@@ -137,8 +165,11 @@ def dummy_reread(title, text, utterance_idx, speaker_name, user_email):
         raise Exception(f"Something went wrong, Utterance {utterance_idx} doesn't exists."
                         f"Normally this shouldn't happen")
     start_time = datetime.now()
+    voice_samples, conditioning_latents = load_voices([speaker_name], [new_speaker.get_speaker_data_root().parent])
+    gen = tts.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
+                              preset=preset, k=candidates, use_deterministic_seed=seed)
+    gen = gen.cpu().numpy().squeeze()
 
-    gen, sample_rate = librosa.load(librosa.example('pistachio'))
     sf.write(utterance_db.get_audio_path(), gen, sample_rate)
     update_dict = {
         'text': text,
@@ -154,7 +185,7 @@ def dummy_reread(title, text, utterance_idx, speaker_name, user_email):
 with gr.Blocks() as editor:
     with gr.Row() as row0:
         with gr.Column(scale=1) as col0:
-            user_email = gr.Text(label='user', placeholder='Enter user email', value='taras.y.sereda@proton.me')
+            email = gr.Text(label='user', placeholder='Enter user email', value='taras.y.sereda@proton.me')
 
             reference_audio = gr.Audio(label='reference audio')
             speaker_name = gr.Textbox(label='Speaker name', placeholder='Enter speaker name')
@@ -162,16 +193,15 @@ with gr.Blocks() as editor:
             speakers = gr.Textbox(label='speakers')
             errors = gr.Textbox(label='error messages')
             get_speakers_button = gr.Button('Get speakers')
-            add_speaker_button.click(add_speaker, inputs=[reference_audio, speaker_name, user_email], outputs=[errors])
-            get_speakers_button.click(get_speakers, inputs=[user_email], outputs=[speakers])
+            add_speaker_button.click(add_speaker, inputs=[reference_audio, speaker_name, email], outputs=[errors])
+            get_speakers_button.click(get_speakers, inputs=[email], outputs=[speakers])
 
         with gr.Column(scale=1) as col1:
-            button_create = gr.Button("Create!")
-            button_load = gr.Button("Load")
+            project_title = gr.Text(label='Title', placeholder="enter your project title", value="2_B_R_0_2_B")
+            project_text = gr.Text(label='Text for synthesis', interactive=True)
 
-            title = gr.Text(label='Title', placeholder="enter your project title", value="2_B_R_0_2_B")
-            text = gr.Text(label='Text for synthesis')
             button = gr.Button(value='Go!')
+            button_load = gr.Button("Load")
 
         outputs = []
         with gr.Column(scale=1, variant='compact') as col2:
@@ -182,17 +212,17 @@ with gr.Blocks() as editor:
                 audio = gr.Audio(label=f'audio_{i}', visible=False)
 
                 try_again = gr.Button(value='try again', visible=False)
-                try_again.click(fn=dummy_reread,
-                                inputs=[title, utterance, utterance_idx, utter_speaker, user_email],
+                try_again.click(fn=reread,
+                                inputs=[project_title, utterance, utterance_idx, utter_speaker, email],
                                 outputs=[audio, utter_speaker])
 
                 outputs.extend([utterance, utterance_idx, utter_speaker, audio, try_again])
 
-        button.click(fn=dummy_read, inputs=[title, text, user_email], outputs=outputs)
-        button_load.click(fn=load, inputs=[title, user_email], outputs=outputs)
+        button.click(fn=read, inputs=[project_title, project_text, email], outputs=outputs)
+        button_load.click(fn=load, inputs=[project_title, email], outputs=outputs)
 
     gr.Markdown("Text examples")
-    gr.Examples([example_text], [text])
+    gr.Examples([example_text], [project_text])
     gr.Markdown("Audio examples")
     gr.Examples([example_voice_sample_path], [reference_audio])
 

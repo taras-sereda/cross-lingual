@@ -34,7 +34,7 @@ class Project(Base):
     date_completed = Column(DateTime)
     owner_id = Column(Integer, ForeignKey("user.id"))
     owner = relationship("User", back_populates="projects")
-    utterances = relationship("Utterance", back_populates="project")
+    utterances = relationship("Utterance", back_populates="project", cascade="all,delete-orphan")
 
     def get_project_data_root(self) -> pathlib.Path:
         project_path: pathlib.Path = self.owner.get_user_data_root().joinpath('projects', self.title.strip())
@@ -53,7 +53,7 @@ class Speaker(Base):
     utterances = relationship("Utterance", back_populates="speaker")
 
     def get_speaker_data_root(self) -> pathlib.Path:
-        speaker_dir_path = self.owner.get_user_data_root().joinpath('voices', f'{self.id}_{self.name.lower()}')
+        speaker_dir_path = self.owner.get_user_data_root().joinpath('voices', f'{self.name.lower()}')
         if not speaker_dir_path.exists():
             speaker_dir_path.mkdir(parents=True, exist_ok=True)
 
