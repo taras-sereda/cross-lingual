@@ -26,4 +26,4 @@ def split_on_speaker_change(raw_text: str):
         pos = e
 
     segs.append(raw_text[pos: len(raw_text)])
-    return dict(zip(spks, segs))
+    return zip(spks, segs)
