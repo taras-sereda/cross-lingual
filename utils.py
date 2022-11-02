@@ -9,10 +9,9 @@ def split_on_speaker_change(raw_text: str):
     speaker_re = re.compile(r"{[\w\s]+}")
     speaker_matches = speaker_re.finditer(raw_text)
     if not speaker_matches:
-        return {None: raw_text}
+        return [(None, raw_text)]
 
-    first_match = next(speaker_matches)
-    s, e = first_match.span()
+    s, e = next(speaker_matches).span()
     pos = e
     spkr = raw_text[s: e].replace('{', '').replace('}', '')
     spks = [spkr]

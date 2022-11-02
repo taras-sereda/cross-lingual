@@ -64,7 +64,6 @@ def read(title, raw_text, user_email):
     speakers_to_features = dict()
     data = []
     for spkr_name, spkr_text in split_on_speaker_change(raw_text):
-        print(spkr_name, spkr_text)
         db_speaker: Speaker = crud.get_speaker_by_name(db, spkr_name, user.id)
         if not db_speaker:
             raise Exception(f"No such speaker {spkr_name} {db_speaker}")
