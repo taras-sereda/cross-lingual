@@ -236,5 +236,4 @@ if __name__ == '__main__':
 
 # TODO add combination of synthesized segments
 # TODO add playground, where one can play with different ways of pronunciation of a particular word
-# TODO add readme, and usage scenario on top of the page.
 # TODO integrate whisper for judging of synthesis quality.

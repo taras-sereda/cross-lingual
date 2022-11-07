@@ -20,7 +20,7 @@ with gr.Blocks() as transcriber:
             audio = gr.Audio(label='Audio for transcription', type='filepath')
 
         with gr.Column(scale=1) as col1:
-            text = gr.Text(label='Text transcription')
+            text = gr.Text(label='Text transcription', interactive=True)
             lang = gr.Text(label='Detected language')
             button = gr.Button(value='Go!')
         button.click(transcribe, inputs=[audio], outputs=[text, lang])
