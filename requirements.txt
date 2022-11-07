@@ -6,3 +6,4 @@ omegaconf
 sqlalchemy
 sqlalchemy_schemadisplay
 sqlite-utils
+git+https://github.com/openai/whisper.git

@@ -6,6 +6,7 @@ from . import crud, models, schemas
 from .database import SessionLocal, engine
 
 from .editor2 import editor
+from .transcriber import transcriber
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -39,5 +40,6 @@ def get_users(db: Session = Depends(get_db)):
     return crud.get_users(db=db)
 
 
-gradio_editor = gr.routes.App.create_app(editor)
-app.mount("/editor", gradio_editor)
+app.mount("/editor", gr.routes.App.create_app(editor))
+
+app.mount("/transcriber", gr.routes.App.create_app(transcriber))
