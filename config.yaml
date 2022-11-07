@@ -1,3 +1,11 @@
 db:
   name: 'test.db'
   data_root: './user_data'
+
+editor:
+  max_utterance: 20
+
+tts:
+  seed: 42
+  candidates: 1
+  sample_rate: 24_000

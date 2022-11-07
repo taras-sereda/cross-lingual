@@ -1,9 +1,8 @@
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import create_engine
 
-from omegaconf import OmegaConf
+from . import cfg
 
-cfg = OmegaConf.load('config.yaml')
 SQLALCHEMY_DATABASE_URL = f'sqlite:///./{cfg.db.name}'
 # engine = create_engine('sqlite:///:memory:', echo=True, future=True)
 # engine = create_engine("sqlite://")

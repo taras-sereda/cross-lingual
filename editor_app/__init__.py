@@ -1,5 +1,10 @@
 import os
 
+from omegaconf import OmegaConf
+
+cfg = OmegaConf.load('config.yaml')
+
+
 example_text = """
 Everything was perfectly swell.
 

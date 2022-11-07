@@ -9,12 +9,9 @@ from tortoise.api import TextToSpeech
 from tortoise.utils.text import split_and_recombine_text
 from tortoise.utils.audio import load_voices
 
-tts = TextToSpeech()
-seed = 42
-candidates = 1
-model_sample_rate = 24_000
+from . import cfg, example_voice_sample_path, example_text
 
-MAX_UTTERANCE = 20
+tts = TextToSpeech()
 
 voices_dir = os.path.join(os.path.dirname(__file__), '../user_data/voices')
 
@@ -42,14 +39,14 @@ def read(text, audio_tuple, speaker_name, speaker_vector):
     res = []
     for text in texts:
         gen = tts.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
-                                  preset=preset, k=candidates, use_deterministic_seed=seed)
+                                  preset=preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed)
         res.append(gr.Textbox.update(value=text, visible=True))
-        res.append(gr.Audio.update(value=(model_sample_rate, gen.cpu().numpy()), visible=True))
+        res.append(gr.Audio.update(value=(cfg.tts.sample_rate, gen.cpu().numpy()), visible=True))
         res.append(gr.Button.update(visible=True))
     n_utterance = len(texts)
 
     # padding
-    if (delta := MAX_UTTERANCE - n_utterance) > 0:
+    if (delta := cfg.editor.max_utterance - n_utterance) > 0:
         for _ in range(delta):
             res.append(gr.Textbox.update(visible=False))
             res.append(gr.Audio.update(visible=False))
@@ -66,11 +63,11 @@ def reread(text, speaker_vector):
     conditioning_latents = speaker_vector['conditioning_latents']
 
     gen = tts.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
-                              preset=preset, k=candidates, use_deterministic_seed=seed)
-    return model_sample_rate, gen.cpu().numpy()
+                              preset=preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed)
+    return cfg.tts.sample_rate, gen.cpu().numpy()
 
 
-with gr.Blocks() as block:
+with gr.Blocks() as editor:
     speaker_vector = gr.State(dict())
     outputs = []
     outputs.append(speaker_vector)
@@ -83,7 +80,7 @@ with gr.Blocks() as block:
             outputs.append(gr.Number(label='number of utterances'))
 
         with gr.Column(variant='compact') as col1:
-            for i in range(MAX_UTTERANCE):
+            for i in range(cfg.editor.max_utterance):
                 utterance = gr.Textbox(label=f'utterance_{i}', visible=False)
                 audio = gr.Audio(label=f'audio_{i}', visible=False)
 
@@ -94,40 +91,7 @@ with gr.Blocks() as block:
 
         button.click(fn=read, inputs=[text, reference_audio, speaker_name, speaker_vector], outputs=outputs)
 
-    example_text = """
-    Everything was perfectly swell.
-
-    There were no prisons, no slums, no insane asylums, no cripples, no
-    poverty, no wars.
-
-    All diseases were conquered. So was old age.
-
-    Death, barring accidents, was an adventure for volunteers.
-
-    The population of the United States was stabilized at forty-million
-    souls.
-
-    One bright morning in the Chicago Lying-in Hospital, a man named Edward
-    K. Wehling, Jr., waited for his wife to give birth. He was the only man
-    waiting. Not many people were born a day any more.
-
-    Wehling was fifty-six, a mere stripling in a population whose average
-    age was one hundred and twenty-nine.
-
-    X-rays had revealed that his wife was going to have triplets. The
-    children would be his first.
-
-    """
     gr.Markdown("Text examples")
     gr.Examples([example_text], [text])
     gr.Markdown("Audio examples")
-    gr.Examples([os.path.join(os.path.dirname(__file__), '../data/VLND2ptAOio.clip.24000.wav')], [reference_audio])
-
-block.launch()
-
-# TODO add speaker preprocessing
-# TODO add audio saving
-# TODO add combination of synthesized segments
-# TODO add playground, where one can play with different ways of pronunciation of a particular word
-# TODO add readme, and usage scenario on top of the page.
-# TODO integrate whisper for judging of synthesis quality.
+    gr.Examples([example_voice_sample_path], [reference_audio])

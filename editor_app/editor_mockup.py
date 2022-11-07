@@ -4,9 +4,7 @@ import gradio as gr
 import librosa
 from tortoise.utils.text import split_and_recombine_text
 
-from . import example_text, example_voice_sample_path
-
-MAX_UTTERANCE = 20
+from . import example_text, example_voice_sample_path, cfg
 
 
 def dummy_add_speaker(audio_tuple, speaker_name):
@@ -31,7 +29,7 @@ def dummy_read(text):
     n_utterance = len(texts)
 
     # padding
-    if (delta := MAX_UTTERANCE - n_utterance) > 0:
+    if (delta := cfg.editor.max_utterance - n_utterance) > 0:
         for _ in range(delta):
             res.append(gr.Textbox.update(visible=False))
             res.append(gr.Audio.update(visible=False))
@@ -71,7 +69,7 @@ with gr.Blocks() as editor:
             outputs = [gr.Number(label='number of utterances')]
 
         with gr.Column(scale=1, variant='compact') as col2:
-            for i in range(MAX_UTTERANCE):
+            for i in range(cfg.editor.max_utterance):
                 utterance = gr.Textbox(label=f'utterance_{i}', visible=False)
                 audio = gr.Audio(label=f'audio_{i}', visible=False)
 

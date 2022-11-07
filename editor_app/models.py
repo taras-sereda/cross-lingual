@@ -2,8 +2,8 @@ import pathlib
 from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Boolean
 from sqlalchemy.orm import relationship
 
-
-from .database import Base, cfg
+from . import cfg
+from .database import Base
 
 
 class User(Base):

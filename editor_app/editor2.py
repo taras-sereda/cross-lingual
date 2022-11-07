@@ -10,16 +10,11 @@ from tortoise.utils.audio import load_voices
 from tortoise.utils.text import split_and_recombine_text
 
 from utils import split_on_speaker_change
-from . import example_text, example_voice_sample_path, schemas, crud
+from . import example_text, example_voice_sample_path, schemas, crud, cfg
 from .database import SessionLocal
 from .models import User, Project, Utterance, Speaker
 
-MAX_UTTERANCE = 20
-
 tts = TextToSpeech()
-seed = 42
-candidates = 1
-sample_rate = 24_000
 
 if torch.cuda.is_available():
     preset = 'standard'
@@ -139,7 +134,7 @@ def load(project: str | Project, user_email: str | None = None, db: Session | No
     n_utterance = len(project.utterances)
 
     # padding
-    if (delta := MAX_UTTERANCE - n_utterance) > 0:
+    if (delta := cfg.editor.max_utterance - n_utterance) > 0:
         for _ in range(delta):
             res.append(gr.Textbox.update(visible=False))
             res.append(gr.Number.update(visible=False))
@@ -173,10 +168,10 @@ def reread(title, text, utterance_idx, speaker_name, user_email):
     start_time = datetime.now()
     voice_samples, conditioning_latents = load_voices([speaker_name], [new_speaker.get_speaker_data_root().parent])
     gen = tts.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
-                              preset=preset, k=candidates, use_deterministic_seed=seed)
+                              preset=preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed)
     gen = gen.cpu().numpy().squeeze()
 
-    sf.write(utterance_db.get_audio_path(), gen, sample_rate)
+    sf.write(utterance_db.get_audio_path(), gen, cfg.tts.sample_rate)
     update_dict = {
         'text': text,
         'speaker_id': new_speaker.id,
@@ -185,7 +180,7 @@ def reread(title, text, utterance_idx, speaker_name, user_email):
     }
     crud.update_any_db_row(db, utterance_db, **update_dict)
     db.close()
-    return (sample_rate, gen), new_speaker.name
+    return (cfg.tts.sample_rate, gen), new_speaker.name
 
 
 with gr.Blocks() as editor:
@@ -214,7 +209,7 @@ with gr.Blocks() as editor:
 
         outputs = []
         with gr.Column(scale=1, variant='compact') as col2:
-            for i in range(MAX_UTTERANCE):
+            for i in range(cfg.editor.max_utterance):
                 utterance = gr.Textbox(label=f'utterance_{i}', visible=False)
                 utterance_idx = gr.Number(visible=False)
                 utter_speaker = gr.Textbox(label=f'speaker name', visible=False)
@@ -238,3 +233,8 @@ with gr.Blocks() as editor:
 
 if __name__ == '__main__':
     editor.launch(debug=True)
+
+# TODO add combination of synthesized segments
+# TODO add playground, where one can play with different ways of pronunciation of a particular word
+# TODO add readme, and usage scenario on top of the page.
+# TODO integrate whisper for judging of synthesis quality.

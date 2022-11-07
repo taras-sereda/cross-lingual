@@ -34,4 +34,4 @@ CxGs9E-QwEA.en-US.vtt
 6. Launching from project root directory:
 
 - fastAPI: `uvicorn editor_app.main:app --reload`
-- standalone: `gradio editor_app/editor2.py editor`
+- gradio: `gradio editor_app/editor2.py editor`
