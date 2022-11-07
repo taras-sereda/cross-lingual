@@ -53,6 +53,13 @@ def get_speakers(user_email):
     return [spkr.name for spkr in user.speakers]
 
 
+def get_projects(user_email):
+    db: Session = SessionLocal()
+    user: User = crud.get_user_by_email(db, user_email)
+    db.close()
+    return [spkr.title for spkr in user.projects]
+
+
 def read(title, raw_text, user_email):
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
@@ -187,16 +194,19 @@ with gr.Blocks() as editor:
             email = gr.Text(label='user', placeholder='Enter user email', value='taras.y.sereda@proton.me')
 
             reference_audio = gr.Audio(label='reference audio')
-            speaker_name = gr.Textbox(label='Speaker name', placeholder='Enter speaker name')
+            speaker_name = gr.Textbox(label='Speaker name', placeholder='Enter speaker name, allowed symbols: lower case letters, numbers, and _')
             add_speaker_button = gr.Button('Add speaker')
             speakers = gr.Textbox(label='speakers')
             errors = gr.Textbox(label='error messages')
             get_speakers_button = gr.Button('Get speakers')
+            user_projects = gr.Textbox(label='user projects')
+            get_user_projects_button = gr.Button('Get projects')
             add_speaker_button.click(add_speaker, inputs=[reference_audio, speaker_name, email], outputs=[errors])
             get_speakers_button.click(get_speakers, inputs=[email], outputs=[speakers])
+            get_user_projects_button.click(get_projects, inputs=[email], outputs=[user_projects])
 
         with gr.Column(scale=1) as col1:
-            project_title = gr.Text(label='Title', placeholder="enter your project title", value="2_B_R_0_2_B")
+            project_title = gr.Text(label='Title', placeholder="enter your project title")
             project_text = gr.Text(label='Text for synthesis', interactive=True)
 
             button = gr.Button(value='Go!')

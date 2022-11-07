@@ -12,7 +12,7 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     email = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
-    projects = relationship("Project", back_populates="owner")
+    projects = relationship("Project", back_populates="owner", lazy='joined')
     speakers = relationship("Speaker", back_populates="owner", lazy='joined')
 
     def get_user_data_root(self) -> pathlib.Path:
