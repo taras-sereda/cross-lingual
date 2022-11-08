@@ -4,6 +4,7 @@ from datetime import datetime
 import gradio as gr
 import soundfile as sf
 import torch
+import numpy as np
 from sqlalchemy.orm import Session
 from tortoise.api import TextToSpeech
 from tortoise.utils.audio import load_voices
@@ -91,12 +92,12 @@ def read(title, raw_text, user_email):
         gen = tts.tts_with_preset(spkr_text,
                                   voice_samples=speakers_to_features[spkr_name]['voice_samples'],
                                   conditioning_latents=speakers_to_features[spkr_name]['conditioning_latents'],
-                                  preset=preset, k=candidates, use_deterministic_seed=seed)
+                                  preset=preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed)
         gen = gen.cpu().numpy().squeeze()
 
         utterance_data = schemas.UtteranceCreate(text=spkr_text, utterance_idx=idx, date_started=datetime.now())
         utterance: Utterance = crud.create_utterance(db, utterance_data, project.id, speakers_to_features[spkr_name]['id'])
-        sf.write(utterance.get_audio_path(), gen, sample_rate)
+        sf.write(utterance.get_audio_path(), gen, cfg.tts.sample_rate)
         crud.update_any_db_row(db, utterance, date_completed=datetime.now())
 
     crud.update_any_db_row(db, project, date_completed=datetime.now())
@@ -183,6 +184,27 @@ def reread(title, text, utterance_idx, speaker_name, user_email):
     return (cfg.tts.sample_rate, gen), new_speaker.name
 
 
+def combine(title, user_email):
+    db = SessionLocal()
+
+    user: User = crud.get_user_by_email(db, user_email)
+    if not user:
+        raise Exception(f"User {user_email} not found. Provide valid email")
+
+    project = crud.get_project_by_title(db, title, user.id)
+    if not project:
+        raise Exception(f"no such project {title}. Provide valid project title")
+
+    project_audio = []
+    for utterance in project.utterances:
+        utter_audio, sample_rate = sf.read(utterance.get_audio_path())
+        project_audio.append(utter_audio)
+    db.close()
+    project_audio = np.concatenate(project_audio)
+
+    return gr.Audio.update(value=(sample_rate, project_audio), visible=True)
+
+
 with gr.Blocks() as editor:
     with gr.Row() as row0:
         with gr.Column(scale=1) as col0:
@@ -204,8 +226,10 @@ with gr.Blocks() as editor:
             project_title = gr.Text(label='Title', placeholder="enter your project title")
             project_text = gr.Text(label='Text for synthesis', interactive=True)
 
-            button = gr.Button(value='Go!')
-            button_load = gr.Button("Load")
+            button = gr.Button(value='Go!', variant='primary')
+            button_load = gr.Button(value='Load')
+            button_combine = gr.Button(value='Combine')
+            combined_audio = gr.Audio(visible=False)
 
         outputs = []
         with gr.Column(scale=1, variant='compact') as col2:
@@ -224,6 +248,7 @@ with gr.Blocks() as editor:
 
         button.click(fn=read, inputs=[project_title, project_text, email], outputs=outputs)
         button_load.click(fn=load, inputs=[project_title, email], outputs=outputs)
+        button_combine.click(fn=combine, inputs=[project_title, email], outputs=[combined_audio])
 
     gr.Markdown("Text examples")
     gr.Examples([example_text], [project_text])

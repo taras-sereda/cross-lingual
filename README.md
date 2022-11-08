@@ -19,8 +19,11 @@ es-ES    Spanish (Spain)          vtt, ttml, srv3, srv2, srv1, json3
 tr       Turkish                  vtt, ttml, srv3, srv2, srv1, json3
 uk       Ukrainian                vtt, ttml, srv3, srv2, srv1, json3
 ```   
-2. download video with subtitles saved as a separate vtt/srt file: `yt-dlp CxGs9E-QwEA --write-sub --sub-langs en-US`
+2. download video with subtitles saved as a separate vtt/srt file: `yt-dlp CxGs9E-QwEA --write-subs --sub-langs en-US -x --audio-format wav -k`
 ```
+-x - extract audio
+-k - keep video
+
 CxGs9E-QwEA.webm
 CxGs9E-QwEA.en-US.vtt
 ```
