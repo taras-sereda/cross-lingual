@@ -3,7 +3,7 @@ db:
   data_root: './user_data'
 
 editor:
-  max_utterance: 20
+  max_utterance: 40
 
 tts:
   seed: 42

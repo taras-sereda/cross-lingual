@@ -57,6 +57,9 @@ def get_projects(user_email):
 
 
 def read(title, raw_text, user_email):
+    if len(title) == 0:
+        raise Exception(f"Project title {title} can't be empty.")
+
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
     if not user:
@@ -259,6 +262,5 @@ with gr.Blocks() as editor:
 if __name__ == '__main__':
     editor.launch(debug=True)
 
-# TODO add combination of synthesized segments
 # TODO add playground, where one can play with different ways of pronunciation of a particular word
 # TODO integrate whisper for judging of synthesis quality.
