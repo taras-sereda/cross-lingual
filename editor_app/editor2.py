@@ -187,6 +187,20 @@ def reread(title, text, utterance_idx, speaker_name, user_email):
     return (cfg.tts.sample_rate, gen), new_speaker.name
 
 
+def playground_read(text, speaker_name, user_email):
+    db: Session = SessionLocal()
+    user: User = crud.get_user_by_email(db, user_email)
+    new_speaker: Speaker = crud.get_speaker_by_name(db, speaker_name, user.id)
+    if not new_speaker:
+        raise Exception(f"Speaker {speaker_name} doesn't exists. Add it first")
+    voice_samples, conditioning_latents = load_voices([speaker_name], [new_speaker.get_speaker_data_root().parent])
+    gen = tts.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
+                              preset=preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed,
+                              num_autoregressive_samples=64)
+    gen = gen.cpu().numpy().squeeze()
+    return (cfg.tts.sample_rate, gen), new_speaker.name
+
+
 def combine(title, user_email):
     db = SessionLocal()
 
@@ -234,6 +248,16 @@ with gr.Blocks() as editor:
             button_combine = gr.Button(value='Combine')
             combined_audio = gr.Audio(visible=False)
 
+            with gr.Box() as b:
+                playground_header = gr.Markdown(value="Playground")
+                playground_text = gr.Text(label='text')
+                playground_spkr = gr.Text(label='speaker')
+                playground_audio = gr.Audio(label='audio')
+                playground_button = gr.Button(value='try again')
+                playground_button.click(fn=playground_read,
+                                        inputs=[playground_text, playground_spkr, email],
+                                        outputs=[playground_audio, playground_spkr])
+
         outputs = []
         with gr.Column(scale=1, variant='compact') as col2:
             for i in range(cfg.editor.max_utterance):
@@ -262,5 +286,4 @@ with gr.Blocks() as editor:
 if __name__ == '__main__':
     editor.launch(debug=True)
 
-# TODO add playground, where one can play with different ways of pronunciation of a particular word
 # TODO integrate whisper for judging of synthesis quality.
