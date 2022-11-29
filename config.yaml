@@ -9,3 +9,11 @@ tts:
   seed: 42
   candidates: 1
   sample_rate: 24_000
+
+stt:
+  sample_rate: 16_000
+  model_size: large
+
+diarization:
+  model_name: "pyannote/speaker-diarization@2.1"
+  auth_token: "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"
