@@ -7,7 +7,6 @@ import whisper
 from torchaudio.transforms import Resample
 from pyannote.audio import Pipeline
 
-
 from . import cfg, example_voice_sample_path
 
 stt_model = whisper.load_model(cfg.stt.model_size)
@@ -36,14 +35,17 @@ def transcribe(audio_data: Tuple[int, np.ndarray]):
 
     segments = []
     for seg, _, speaker in diarizations.itertracks(yield_label=True):
-        seg_wav = stt_waveform[int(seg.start*cfg.stt.sample_rate): int(seg.end*cfg.stt.sample_rate)]
+        seg_wav = stt_waveform[int(seg.start * cfg.stt.sample_rate): int(seg.end * cfg.stt.sample_rate)]
         seg_trans_res = stt_model.transcribe(seg_wav)
         segments.append([seg, speaker, seg_trans_res['text'], seg_trans_res['language']])
     res = ''
+    char_count = 0
     for seg in segments:
         res += f"{seg[0]}\n{{{seg[1]}}}\n{seg[2]}\n\n"
+        char_count += len(seg[2])
+    detected_lang = segments[0][-1]
 
-    return res, segments[0][-1]
+    return res, detected_lang, char_count
 
 
 with gr.Blocks() as transcriber:
@@ -55,8 +57,9 @@ with gr.Blocks() as transcriber:
         with gr.Column(scale=1) as col1:
             text = gr.Text(label='Text transcription', interactive=True)
             lang = gr.Text(label='Detected language')
+            num_chars = gr.Number(label='Number of characters')
             button = gr.Button(value='Go!')
-        button.click(transcribe, inputs=[audio], outputs=[text, lang])
+        button.click(transcribe, inputs=[audio], outputs=[text, lang, num_chars])
 
     gr.Markdown("Audio examples")
     gr.Examples([example_voice_sample_path], [audio])
