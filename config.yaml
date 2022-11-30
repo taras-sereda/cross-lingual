@@ -17,3 +17,6 @@ stt:
 diarization:
   model_name: "pyannote/speaker-diarization@2.1"
   auth_token: "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"
+
+translation:
+  auth_token: "ec035bdb-9e90-810f-cfd3-2da51ee91ca2:fx"

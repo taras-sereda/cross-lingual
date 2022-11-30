@@ -10,7 +10,7 @@ from tortoise.api import TextToSpeech
 from tortoise.utils.audio import load_voices
 from tortoise.utils.text import split_and_recombine_text
 
-from utils import split_on_speaker_change
+from utils import split_on_speaker_change, timecode_re
 from . import example_text, example_voice_sample_path, schemas, crud, cfg
 from .database import SessionLocal
 from .models import User, Project, Utterance, Speaker
@@ -69,6 +69,15 @@ def read(title, raw_text, user_email):
 
     speakers_to_features = dict()
     data = []
+
+    # TODO. refactor. temp, ignore all timecode lines
+    raw_lines = []
+    for line in raw_text.split('\n'):
+        if timecode_re.match(line):
+            continue
+        raw_lines.append(line)
+    raw_text = '\n'.join(raw_lines)
+
     for spkr_name, spkr_text in split_on_speaker_change(raw_text):
         db_speaker: Speaker = crud.get_speaker_by_name(db, spkr_name, user.id)
         if not db_speaker:

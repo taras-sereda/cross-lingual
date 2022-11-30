@@ -63,3 +63,5 @@ with gr.Blocks() as transcriber:
 
     gr.Markdown("Audio examples")
     gr.Examples([example_voice_sample_path], [audio])
+
+# TODO. Add speakers mapping

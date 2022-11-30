@@ -8,6 +8,7 @@ from .database import SessionLocal, engine
 
 from .editor2 import editor
 from .transcriber import transcriber
+from .translator import translator
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -34,7 +35,7 @@ def main():
             <h1>How To</h1>
             <ol type=1>
                 <li>Transcribe audio file in <a href="/transcriber">transcriber</a> </li>
-                <li>Translate transcript to English with third-party service: <a href="https://www.deepl.com/translator" target="_blank">DeepL</a> </li>
+                <li>Translate transcript to English <a href="/translator">translator</a> </li>
                 <li>Add speakers with samples of their speech in <a href="/editor">editor</a> </li>
                 <li>Add speakers enclosed in curly braces in translated text and run audio generation in <a href="/editor">editor</a> </li>
                 <p>
@@ -64,5 +65,5 @@ def get_users(db: Session = Depends(get_db)):
 
 
 app.mount("/editor", gr.routes.App.create_app(editor))
-
 app.mount("/transcriber", gr.routes.App.create_app(transcriber))
+app.mount("/translator", gr.routes.App.create_app(translator))
