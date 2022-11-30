@@ -90,7 +90,7 @@ def read(title, raw_text, user_email):
             speakers_to_features[db_speaker.name] = {
                 'id': db_speaker.id,
                 'voice_samples': voice_samples,
-                'conditioning_latents': conditioning_latents,}
+                'conditioning_latents': conditioning_latents}
 
         texts = split_and_recombine_text(spkr_text)
         for text in texts:
@@ -100,14 +100,14 @@ def read(title, raw_text, user_email):
     project = crud.create_project(db, project_data, user.id)
 
     for idx, (spkr_name, spkr_text) in enumerate(data):
-
+        gen_start = datetime.now()
         gen = tts.tts_with_preset(spkr_text,
                                   voice_samples=speakers_to_features[spkr_name]['voice_samples'],
                                   conditioning_latents=speakers_to_features[spkr_name]['conditioning_latents'],
                                   preset=preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed)
         gen = gen.cpu().numpy().squeeze()
 
-        utterance_data = schemas.UtteranceCreate(text=spkr_text, utterance_idx=idx, date_started=datetime.now())
+        utterance_data = schemas.UtteranceCreate(text=spkr_text, utterance_idx=idx, date_started=gen_start)
         utterance: Utterance = crud.create_utterance(db, utterance_data, project.id, speakers_to_features[spkr_name]['id'])
         sf.write(utterance.get_audio_path(), gen, cfg.tts.sample_rate)
         crud.update_any_db_row(db, utterance, date_completed=datetime.now())
