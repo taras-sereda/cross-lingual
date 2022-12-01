@@ -1,19 +1,18 @@
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
-import gradio as gr
+from gradio import routes
 from sqlalchemy.orm import Session
 
 from . import crud, models, schemas
 from .database import SessionLocal, engine
 
-from .editor2 import editor
+from .editor2 import submitter, editor
 from .transcriber import transcriber
 from .translator import translator
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
 
 # Dependency
 def get_db():
@@ -34,10 +33,11 @@ def main():
         <body>
             <h1>How To</h1>
             <ol type=1>
-                <li>Transcribe audio file in <a href="/transcriber">transcriber</a> </li>
-                <li>Translate transcript to English <a href="/translator">translator</a> </li>
-                <li>Add speakers with samples of their speech in <a href="/editor">editor</a> </li>
-                <li>Add speakers enclosed in curly braces in translated text and run audio generation in <a href="/editor">editor</a> </li>
+                <li><a href="/transcribe">transcribe</a> audio file</li>
+                <li><a href="/translate">translate</a> transcript to English</li>
+                <li>Add speakers with samples of their speech in; Add speakers enclosed in curly braces 
+                before each paragraph in text and <a href="/submit">submit</a> generaiton job</li>
+                <li><a href="/editor">view/editor</a> View and edit generated waveforms</li>
                 <p>
                 Example: <br><br>
                 {taras_sereda}<br>
@@ -64,6 +64,7 @@ def get_users(db: Session = Depends(get_db)):
     return crud.get_users(db=db)
 
 
-app.mount("/editor", gr.routes.App.create_app(editor))
-app.mount("/transcriber", gr.routes.App.create_app(transcriber))
-app.mount("/translator", gr.routes.App.create_app(translator))
+app = routes.mount_gradio_app(app, translator, "/translate")
+app = routes.mount_gradio_app(app, transcriber, "/transcribe")
+app = routes.mount_gradio_app(app, submitter, "/submit")
+app = routes.mount_gradio_app(app, editor, "/editor")

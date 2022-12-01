@@ -9,6 +9,7 @@ tts:
   seed: 42
   candidates: 1
   sample_rate: 24_000
+  preset: ???
 
 stt:
   sample_rate: 16_000
@@ -20,3 +21,6 @@ diarization:
 
 translation:
   auth_token: "ec035bdb-9e90-810f-cfd3-2da51ee91ca2:fx"
+
+user:
+  email: "taras.y.sereda@proton.me"

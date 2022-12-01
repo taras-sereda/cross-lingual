@@ -1,8 +1,16 @@
 import os
 
+import torch
 from omegaconf import OmegaConf
 
 cfg = OmegaConf.load('config.yaml')
+
+if torch.cuda.is_available():
+    preset = 'standard'
+else:
+    preset = 'ultra_fast'
+
+cfg.tts.preset = preset
 
 
 example_text = """
