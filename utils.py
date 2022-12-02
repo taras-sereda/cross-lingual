@@ -1,8 +1,11 @@
 import re
 
+import Levenshtein
+
 timecode_re = re.compile(r"\[[\d\s:\.\->]+\]")
 speaker_re = re.compile(r"{\w+}")
 double_new_line = re.compile(r"\n\s*\n")
+punctuation_re = re.compile(r"[^\w\s]")
 
 
 def split_on_speaker_change(raw_text: str):
@@ -55,3 +58,17 @@ def convert_text_to_segments(raw_text: str):
             'speaker': speaker,
             'text': text})
     return segments
+
+
+def compute_string_similarity(str1: str, str2: str) -> float:
+    """
+    String similarity ignoring punctuation.
+    """
+    str1 = str1.strip()
+    str1 = re.sub(punctuation_re, '', str1)
+
+    str2 = str2.strip()
+    str2 = re.sub(punctuation_re, '', str2)
+    dist = Levenshtein.distance(str1, str2)
+
+    return 1 - dist / max(len(str1), len(str2))

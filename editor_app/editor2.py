@@ -28,13 +28,16 @@ with gr.Blocks() as submitter:
 
             with gr.Box() as b:
                 playground_header = gr.Markdown(value="Playground")
-                playground_text = gr.Text(label='text')
                 playground_spkr = gr.Text(label='speaker')
-                playground_audio = gr.Audio(label='audio')
+                playground_text = gr.Text(label='text')
                 playground_button = gr.Button(value='try again')
+                playground_similarity = gr.Number(label='similarity score', precision=3)
+                playground_stt_text = gr.Text(label='STT text')
+                playground_audio = gr.Audio(label='audio')
+
                 playground_button.click(fn=playground_read,
                                         inputs=[playground_text, playground_spkr, email],
-                                        outputs=[playground_audio, playground_spkr])
+                                        outputs=[playground_stt_text, playground_similarity, playground_audio, playground_spkr])
 
         button.click(fn=read, inputs=[title, text, email], outputs=[])
 
@@ -50,33 +53,35 @@ with gr.Blocks() as editor:
             email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
             speakers = gr.Textbox(label='speakers')
             get_speakers_button = gr.Button('Get speakers')
-            user_projects = gr.Textbox(label='user projects')
+            user_projects = gr.Textbox(label='projects')
             get_user_projects_button = gr.Button('Get projects')
             get_speakers_button.click(get_speakers, inputs=[email], outputs=[speakers])
             get_user_projects_button.click(get_projects, inputs=[email], outputs=[user_projects])
 
             title = gr.Text(label='Title', placeholder="enter project title")
-            utter_from_idx = gr.Number(value=0, precision=0)
+            utter_from_idx = gr.Number(label='utterance start index', value=0, precision=0)
             button_load = gr.Button(value='Load', variant='primary')
+            num_utterance = gr.Number(label='Total number of utterances', precision=0)
             text = gr.Text(label='Text')
 
             button_combine = gr.Button(value='Combine')
             combined_audio = gr.Audio(visible=False)
 
-        outputs = [text]
+        outputs = [text, num_utterance]
         with gr.Column(scale=1, variant='compact') as editor_col1:
             for i in range(cfg.editor.max_utterance):
-                utterance = gr.Textbox(label=f'utterance_{i}', visible=False, show_label=False)
-                utterance_idx = gr.Number(visible=False, precision=0)
+
+                utter_idx = gr.Number(visible=False, precision=0)
                 utter_speaker = gr.Textbox(label=f'speaker name', visible=False)
-                audio = gr.Audio(label=f'audio_{i}', visible=False, show_label=False)
+                utter_text = gr.Textbox(label=f'utterance_{i}', visible=False, show_label=False)
+                utter_audio = gr.Audio(label=f'audio_{i}', visible=False, show_label=False)
 
                 try_again = gr.Button(value='try again', visible=False)
                 try_again.click(fn=reread,
-                                inputs=[title, utterance, utterance_idx, utter_speaker, email],
-                                outputs=[audio, utter_speaker])
+                                inputs=[title, utter_text, utter_idx, utter_speaker, email],
+                                outputs=[utter_audio, utter_speaker])
 
-                outputs.extend([utterance, utterance_idx, utter_speaker, audio, try_again])
+                outputs.extend([utter_text, utter_idx, utter_speaker, utter_audio, try_again])
 
         button_load.click(fn=load, inputs=[title, email, utter_from_idx], outputs=outputs)
         button_combine.click(fn=combine, inputs=[title, email], outputs=[combined_audio])

@@ -9,10 +9,11 @@ from tortoise.api import TextToSpeech
 from tortoise.utils.audio import load_voices
 from tortoise.utils.text import split_and_recombine_text
 
-from utils import split_on_speaker_change, timecode_re
+from utils import split_on_speaker_change, timecode_re, compute_string_similarity
 from . import schemas, crud, cfg
 from .database import SessionLocal
 from .models import User, Project, Utterance, Speaker
+from .stt import stt_model
 
 
 tts_model = TextToSpeech()
@@ -124,7 +125,11 @@ def playground_read(text, speaker_name, user_email):
                                     num_autoregressive_samples=cfg.tts.num_autoregressive_samples)
     gen = gen.cpu().numpy().squeeze()
     db.close()
-    return (cfg.tts.sample_rate, gen), new_speaker.name
+
+    stt_res = stt_model.transcribe(gen)
+    stt_text = stt_res['text']
+    similarity = compute_string_similarity(text, stt_text)
+    return stt_text, similarity, (cfg.tts.sample_rate, gen), new_speaker.name
 
 
 def load(project_name: str, user_email: str, from_idx: int):
@@ -137,8 +142,8 @@ def load(project_name: str, user_email: str, from_idx: int):
     if not project:
         raise Exception(f"no such project {project_name}. Provide valid project title")
 
-    res = [project.text]
     utterances = project.utterances[from_idx: from_idx + cfg.editor.max_utterance]
+    res = [project.text, len(project.utterances)]
     for utterance in utterances:
         res.append(gr.Textbox.update(value=utterance.text, visible=True))
         res.append(gr.Number.update(value=utterance.utterance_idx))
@@ -147,6 +152,7 @@ def load(project_name: str, user_email: str, from_idx: int):
         gen, sample_rate = sf.read(utterance.get_audio_path())
         res.append(gr.Audio.update(value=(sample_rate, gen), visible=True))
         res.append(gr.Button.update(visible=True))
+    db.close()
 
     # padding
     if (delta := cfg.editor.max_utterance - len(utterances)) > 0:
@@ -156,7 +162,6 @@ def load(project_name: str, user_email: str, from_idx: int):
             res.append(gr.Textbox.update(visible=False))
             res.append(gr.Audio.update(visible=False))
             res.append(gr.Button.update(visible=False))
-    db.close()
     return res
 
 

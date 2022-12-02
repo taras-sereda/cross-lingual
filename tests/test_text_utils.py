@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from utils import split_on_speaker_change, convert_text_to_segments
-from utils import timecode_re, speaker_re
+from utils import timecode_re, speaker_re, punctuation_re, compute_string_similarity
 
 
 class Test(TestCase):
@@ -57,3 +57,10 @@ class Test(TestCase):
     def test_regex(self):
         self.assertIsNotNone(timecode_re.match("[ 00:00:18.773 -->  00:00:19.904]"))
         self.assertIsNotNone(speaker_re.match("{taras_sereda}"))
+        self.assertEqual('How well does this regex work', punctuation_re.sub('', 'How well,,, does this regex work?'))
+        self.assertEqual('Its alright', punctuation_re.sub('', "==~~It's alright~~=="))
+
+    def test_levenstein(self):
+        str1 = "This is the story of a large Ukrainian business, which was the first in our market, according to my personal impressions. It was, right?"
+        str2 = " This is the story of a large Ukrainian business, which was the first in our market according to my personal impressions. It was right?"
+        self.assertEquals(compute_string_similarity(str1, str2), 1.0)
