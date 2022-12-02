@@ -15,7 +15,7 @@ from .database import SessionLocal
 from .models import User, Project, Utterance, Speaker
 
 
-tts = TextToSpeech()
+tts_model = TextToSpeech()
 
 
 def add_speaker(audio_tuple, speaker_name, user_email):
@@ -96,11 +96,11 @@ def read(title, raw_text, user_email):
 
     for idx, (spkr_name, spkr_text) in enumerate(data):
         gen_start = datetime.now()
-        gen = tts.tts_with_preset(spkr_text,
-                                  voice_samples=speakers_to_features[spkr_name]['voice_samples'],
-                                  conditioning_latents=speakers_to_features[spkr_name]['conditioning_latents'],
-                                  preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed,
-                                  num_autoregressive_samples=16)
+        gen = tts_model.tts_with_preset(spkr_text,
+                                        voice_samples=speakers_to_features[spkr_name]['voice_samples'],
+                                        conditioning_latents=speakers_to_features[spkr_name]['conditioning_latents'],
+                                        preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed,
+                                        num_autoregressive_samples=16)
         gen = gen.cpu().numpy().squeeze()
 
         utterance_data = schemas.UtteranceCreate(text=spkr_text, utterance_idx=idx, date_started=gen_start)
@@ -119,9 +119,9 @@ def playground_read(text, speaker_name, user_email):
     if not new_speaker:
         raise Exception(f"Speaker {speaker_name} doesn't exists. Add it first")
     voice_samples, conditioning_latents = load_voices([speaker_name], [new_speaker.get_speaker_data_root().parent])
-    gen = tts.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
-                              preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed,
-                              num_autoregressive_samples=16)
+    gen = tts_model.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
+                                    preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed,
+                                    num_autoregressive_samples=16)
     gen = gen.cpu().numpy().squeeze()
     db.close()
     return (cfg.tts.sample_rate, gen), new_speaker.name
@@ -179,8 +179,8 @@ def reread(title, text, utterance_idx, speaker_name, user_email):
                         f"Normally this shouldn't happen")
     start_time = datetime.now()
     voice_samples, conditioning_latents = load_voices([speaker_name], [new_speaker.get_speaker_data_root().parent])
-    gen = tts.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
-                              preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed)
+    gen = tts_model.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
+                                    preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed)
     gen = gen.cpu().numpy().squeeze()
 
     sf.write(utterance_db.get_audio_path(), gen, cfg.tts.sample_rate)

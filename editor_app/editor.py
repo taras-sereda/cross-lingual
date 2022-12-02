@@ -3,22 +3,15 @@ import warnings
 
 import gradio as gr
 import soundfile as sf
-import torch
 
-from tortoise.api import TextToSpeech
 from tortoise.utils.text import split_and_recombine_text
 from tortoise.utils.audio import load_voices
 
 from . import cfg, example_voice_sample_path, example_text
+from .tts import tts_model
 
-tts = TextToSpeech()
 
 voices_dir = os.path.join(os.path.dirname(__file__), '../user_data/voices')
-
-if torch.cuda.is_available():
-    preset = 'standard'
-else:
-    preset = 'ultra_fast'
 
 
 def read(text, audio_tuple, speaker_name, speaker_vector):
@@ -38,8 +31,8 @@ def read(text, audio_tuple, speaker_name, speaker_vector):
     texts = split_and_recombine_text(text)
     res = []
     for text in texts:
-        gen = tts.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
-                                  preset=preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed)
+        gen = tts_model.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
+                                        preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed)
         res.append(gr.Textbox.update(value=text, visible=True))
         res.append(gr.Audio.update(value=(cfg.tts.sample_rate, gen.cpu().numpy()), visible=True))
         res.append(gr.Button.update(visible=True))
@@ -62,8 +55,8 @@ def reread(text, speaker_vector):
     voice_samples = speaker_vector['voice_samples']
     conditioning_latents = speaker_vector['conditioning_latents']
 
-    gen = tts.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
-                              preset=preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed)
+    gen = tts_model.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
+                                    preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed)
     return cfg.tts.sample_rate, gen.cpu().numpy()
 
 

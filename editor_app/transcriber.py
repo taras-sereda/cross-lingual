@@ -3,13 +3,14 @@ from typing import Tuple
 import gradio as gr
 import torch
 import numpy as np
-import whisper
+
 from torchaudio.transforms import Resample
 from pyannote.audio import Pipeline
 
 from . import cfg, example_voice_sample_path
+from .stt import stt_model
 
-stt_model = whisper.load_model(cfg.stt.model_size)
+
 diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_auth_token=cfg.diarization.auth_token)
 
 

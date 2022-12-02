@@ -2,7 +2,7 @@
 import gradio as gr
 
 from . import cfg, example_text, example_voice_sample_path
-from .tts_common import add_speaker, get_speakers, get_projects, read, playground_read, reread, load, combine
+from .tts import add_speaker, get_speakers, get_projects, read, playground_read, reread, load, combine
 
 with gr.Blocks() as submitter:
     with gr.Row() as row0:
