@@ -3,12 +3,13 @@ db:
   data_root: './user_data'
 
 editor:
-  max_utterance: 40
+  max_utterance: 5
 
 tts:
   seed: 42
   candidates: 1
   sample_rate: 24_000
+  num_autoregressive_samples: 16
   preset: ???
 
 stt:

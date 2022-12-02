@@ -100,7 +100,7 @@ def read(title, raw_text, user_email):
                                         voice_samples=speakers_to_features[spkr_name]['voice_samples'],
                                         conditioning_latents=speakers_to_features[spkr_name]['conditioning_latents'],
                                         preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed,
-                                        num_autoregressive_samples=16)
+                                        num_autoregressive_samples=cfg.tts.num_autoregressive_samples)
         gen = gen.cpu().numpy().squeeze()
 
         utterance_data = schemas.UtteranceCreate(text=spkr_text, utterance_idx=idx, date_started=gen_start)
@@ -121,7 +121,7 @@ def playground_read(text, speaker_name, user_email):
     voice_samples, conditioning_latents = load_voices([speaker_name], [new_speaker.get_speaker_data_root().parent])
     gen = tts_model.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
                                     preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed,
-                                    num_autoregressive_samples=16)
+                                    num_autoregressive_samples=cfg.tts.num_autoregressive_samples)
     gen = gen.cpu().numpy().squeeze()
     db.close()
     return (cfg.tts.sample_rate, gen), new_speaker.name
@@ -180,7 +180,8 @@ def reread(title, text, utterance_idx, speaker_name, user_email):
     start_time = datetime.now()
     voice_samples, conditioning_latents = load_voices([speaker_name], [new_speaker.get_speaker_data_root().parent])
     gen = tts_model.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
-                                    preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed)
+                                    preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed,
+                                    num_autoregressive_samples=cfg.tts.num_autoregressive_samples)
     gen = gen.cpu().numpy().squeeze()
 
     sf.write(utterance_db.get_audio_path(), gen, cfg.tts.sample_rate)
