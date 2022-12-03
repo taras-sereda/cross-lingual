@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from utils import split_on_speaker_change, convert_text_to_segments
+from utils import split_on_speaker_change, split_on_raw_utterances
 from utils import timecode_re, speaker_re, punctuation_re, compute_string_similarity
 
 
@@ -34,25 +34,26 @@ class Test(TestCase):
     def test_convert_text_to_segments(self):
         text = """
         [ 00:00:18.773 -->  00:00:19.904]
-        [SPEAKER_00]
+        {SPEAKER_00}
         — Дякую, що запросив.
         
         [ 00:00:20.055 -->  00:00:35.547]
-        [SPEAKER_01]
+        {SPEAKER_01}
         — Це історія великого українського бізнесу, який на нашому ринку був першим, по моїм особистим враженням.
         Так і було, правильно?
         
-        [SPEAKER_00]
+        {SPEAKER_00}
         — Да, так.
         """
 
-        res = convert_text_to_segments(text)
+        res = split_on_raw_utterances(text)
         self.assertEquals(len(res), 3)
 
         # input_file = '/Users/tarassereda/data/prosody-lab/user_input_data/denys_marakin/doipislya_02_uklon/До-і-після-uklon.txt'
-        # with open(input_file, encoding='utf-8-sig') as fd:
-        #     lines = fd.read()
-        # convert_text_to_segments(lines)
+        input_file = '/Users/tarassereda/data/prosody-lab/user_input_data/denys_marakin/doipislya_02_uklon/uklon_en_translation_00.txt'
+        with open(input_file, encoding='utf-8-sig') as fd:
+            lines = fd.read()
+        split_on_raw_utterances(lines)
 
     def test_regex(self):
         self.assertIsNotNone(timecode_re.match("[ 00:00:18.773 -->  00:00:19.904]"))

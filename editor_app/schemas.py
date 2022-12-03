@@ -26,6 +26,7 @@ class UtteranceBase(BaseModel):
     text: str
     utterance_idx: int
     date_started: datetime
+    timecode: str | None = None
 
 
 class UtteranceCreate(UtteranceBase):

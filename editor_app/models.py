@@ -70,6 +70,7 @@ class Utterance(Base):
     date_completed = Column(DateTime)
     project_id = Column(Integer, ForeignKey("project.id"))
     speaker_id = Column(Integer, ForeignKey("speaker.id"))
+    timecode = Column(String, nullable=True)
     project = relationship("Project", back_populates="utterances")
     speaker = relationship("Speaker", back_populates="utterances", lazy="joined")
 

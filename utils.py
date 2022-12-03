@@ -2,6 +2,8 @@ import re
 
 import Levenshtein
 
+from datatypes import RawUtterance
+
 timecode_re = re.compile(r"\[[\d\s:\.\->]+\]")
 speaker_re = re.compile(r"{\w+}")
 double_new_line = re.compile(r"\n\s*\n")
@@ -34,30 +36,24 @@ def split_on_speaker_change(raw_text: str):
     return zip(spks, segs)
 
 
-def convert_text_to_segments(raw_text: str):
-    speaker_re = re.compile(r"\[\w+\]")
-    char_count = 0
-    segments = []
-    for idx, utterance in enumerate(double_new_line.split(raw_text)):
+def split_on_raw_utterances(raw_text: str) -> list[RawUtterance]:
+    raw_text = raw_text.strip()
+    utterances = []
+    for idx, raw_utter in enumerate(double_new_line.split(raw_text)):
 
-        ut = utterance.strip()
-        ut_lines = ut.split('\n')
-        ut_lines = list(map(lambda x: x.lstrip(), ut_lines))
+        utter_lines = raw_utter.strip().split('\n')
+        utter_lines = list(map(lambda x: x.lstrip(), utter_lines))
 
         timecode = None
-        if timecode_re.match(ut_lines[0]):
-            timecode = ut_lines.pop(0)
+        if timecode_re.match(utter_lines[0]):
+            timecode = str(utter_lines.pop(0))
 
-        assert speaker_re.match(ut_lines[0]), ut_lines
-        speaker = ut_lines.pop(0)
-        text = ' '.join(ut_lines)
-        char_count += len(text)
-
-        segments.append({
-            'timecode': timecode,
-            'speaker': speaker,
-            'text': text})
-    return segments
+        assert speaker_re.match(utter_lines[0]), utter_lines
+        speaker = utter_lines.pop(0)
+        speaker = speaker.replace('{', '').replace('}', '')
+        text = ' '.join(utter_lines)
+        utterances.append(RawUtterance(timecode, speaker, text))
+    return utterances
 
 
 def compute_string_similarity(str1: str, str2: str) -> float:

@@ -9,7 +9,8 @@ from tortoise.api import TextToSpeech
 from tortoise.utils.audio import load_voices
 from tortoise.utils.text import split_and_recombine_text
 
-from utils import split_on_speaker_change, timecode_re, compute_string_similarity
+from utils import compute_string_similarity, split_on_raw_utterances
+from datatypes import RawUtterance
 from . import schemas, crud, cfg
 from .database import SessionLocal
 from .models import User, Project, Utterance, Speaker
@@ -64,20 +65,12 @@ def read(title, raw_text, user_email):
         raise Exception(f"Project {title} already exists! Try to load it")
 
     speakers_to_features = dict()
-    data = []
+    data: list[RawUtterance] = []
+    for utter in split_on_raw_utterances(raw_text):
 
-    # TODO. refactor. temp, ignore all timecode lines
-    raw_lines = []
-    for line in raw_text.split('\n'):
-        if timecode_re.match(line):
-            continue
-        raw_lines.append(line)
-    raw_text = '\n'.join(raw_lines)
-
-    for spkr_name, spkr_text in split_on_speaker_change(raw_text):
-        db_speaker: Speaker = crud.get_speaker_by_name(db, spkr_name, user.id)
+        db_speaker: Speaker = crud.get_speaker_by_name(db, utter.speaker, user.id)
         if not db_speaker:
-            raise Exception(f"No such speaker {spkr_name} {db_speaker}")
+            raise Exception(f"No such speaker {utter.speaker} {db_speaker}")
 
         # load voice samples and conditioning latents.
         if db_speaker.name not in speakers_to_features:
@@ -88,24 +81,24 @@ def read(title, raw_text, user_email):
                 'voice_samples': voice_samples,
                 'conditioning_latents': conditioning_latents}
 
-        texts = split_and_recombine_text(spkr_text)
-        for text in texts:
-            data.append((db_speaker.name, text))
+        for text in split_and_recombine_text(utter.text):
+            data.append(RawUtterance(utter.timecode, db_speaker.name, text))
 
     project_data = schemas.ProjectCreate(title=title, text=raw_text, date_created=datetime.now())
     project = crud.create_project(db, project_data, user.id)
 
-    for idx, (spkr_name, spkr_text) in enumerate(data):
+    for idx, utter in enumerate(data):
         gen_start = datetime.now()
-        gen = tts_model.tts_with_preset(spkr_text,
-                                        voice_samples=speakers_to_features[spkr_name]['voice_samples'],
-                                        conditioning_latents=speakers_to_features[spkr_name]['conditioning_latents'],
+        gen = tts_model.tts_with_preset(utter.text,
+                                        voice_samples=speakers_to_features[utter.speaker]['voice_samples'],
+                                        conditioning_latents=speakers_to_features[utter.speaker]['conditioning_latents'],
                                         preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed,
                                         num_autoregressive_samples=cfg.tts.num_autoregressive_samples)
         gen = gen.cpu().numpy().squeeze()
 
-        utterance_data = schemas.UtteranceCreate(text=spkr_text, utterance_idx=idx, date_started=gen_start)
-        utterance: Utterance = crud.create_utterance(db, utterance_data, project.id, speakers_to_features[spkr_name]['id'])
+        utterance_data = schemas.UtteranceCreate(text=utter.text, utterance_idx=idx,
+                                                 date_started=gen_start, timecode=utter.timecode)
+        utterance: Utterance = crud.create_utterance(db, utterance_data, project.id, speakers_to_features[utter.speaker]['id'])
         sf.write(utterance.get_audio_path(), gen, cfg.tts.sample_rate)
         crud.update_any_db_row(db, utterance, date_completed=datetime.now())
 

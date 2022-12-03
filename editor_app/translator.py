@@ -2,7 +2,7 @@ import gradio as gr
 
 import deepl
 
-from utils import convert_text_to_segments
+from utils import split_on_raw_utterances
 from . import cfg
 
 deepl_translator = deepl.Translator(cfg.translation.auth_token)
@@ -11,7 +11,7 @@ deepl_translator = deepl.Translator(cfg.translation.auth_token)
 def translate(text: str, tgt_lang: str):
     """Translate
     """
-    segments = convert_text_to_segments(text)
+    segments = split_on_raw_utterances(text)
     num_src_char = 0
     num_tgt_char = 0
 
@@ -19,20 +19,20 @@ def translate(text: str, tgt_lang: str):
     with open('uklon_en_translation.txt', 'w') as fd:
         for seg in segments:
             # TODO. speaker mapping - should be moved to transcriber
-            if seg['speaker'] == '[SPEAKER_00]':
+            if seg.speaker == 'SPEAKER_00':
                 spkr = 'sergiy_smus_before_and_after_uklon'
-            elif seg['speaker'] == '[SPEAKER_01]':
+            elif seg.speaker == 'SPEAKER_01':
                 spkr = 'denys_marakin_before_and_after_intro'
             else:
                 raise ValueError('Unknown speaker')
 
-            seg_res = deepl_translator.translate_text(seg['text'], target_lang=tgt_lang)
-            num_src_char += len(seg['text'])
+            seg_res = deepl_translator.translate_text(seg.text, target_lang=tgt_lang)
+            num_src_char += len(seg.text)
             num_tgt_char += len(seg_res.text)
 
             components = []
-            if seg['timecode'] is not None:
-                components.append(str(seg['timecode']))
+            if seg.timecode is not None:
+                components.append(seg.timecode)
             components.extend([f'{{{spkr}}}', seg_res.text, '\n'])
             line = '\n'.join(components)
             fd.write(line)
