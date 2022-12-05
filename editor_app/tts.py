@@ -1,3 +1,5 @@
+import json
+from collections import defaultdict
 from datetime import datetime
 
 import gradio as gr
@@ -205,10 +207,47 @@ def combine(title, user_email):
     if not project:
         raise Exception(f"no such project {title}. Provide valid project title")
 
-    project_audio = []
-    for utterance in project.utterances:
-        utter_audio, sample_rate = sf.read(utterance.get_audio_path())
-        project_audio.append(utter_audio)
+    utterances: list[Utterance] = project.utterances
+    combined_dir = utterances[0].get_audio_path().parent.joinpath('combined')
+    combined_dir.mkdir(exist_ok=True)
+
+    if not list(combined_dir.glob("*.wav")):
+        unique_speakers = set([utter.speaker_id for utter in utterances])
+        project_audio_tracks = defaultdict(list)
+        metadata = []
+        start_sec = 0
+        for utterance in utterances:
+            utter_audio, sample_rate = sf.read(utterance.get_audio_path())
+
+            assert utter_audio.ndim == 1
+            n_sample = utter_audio.shape[0]
+            project_audio_tracks[utterance.speaker_id].extend(utter_audio)
+
+            silence_audio = np.zeros_like(utter_audio)
+            for other_spkr_id in (unique_speakers - {utterance.speaker_id}):
+                project_audio_tracks[other_spkr_id].extend(silence_audio)
+
+            end_sec = start_sec + n_sample / sample_rate
+            metadata.append({
+                'start_sec': f'{start_sec:.3f}',
+                'end_sec': f'{end_sec:.3f}',
+                'speaker_id': utterance.speaker_id,
+                'speaker_name': utterance.speaker.name
+            })
+            start_sec = end_sec
+
+        for k, v in project_audio_tracks.items():
+            sf.write(combined_dir.joinpath(f'combined_{k}.wav'), v, cfg.tts.sample_rate)
+
+        with open(combined_dir.joinpath('metadata.json'), 'w') as fd:
+            json.dump(metadata, fd)
+
     db.close()
-    project_audio = np.concatenate(project_audio)
-    return gr.Audio.update(value=(sample_rate, project_audio), visible=True)
+
+    tracks = []
+    for track_path in combined_dir.glob("*.wav"):
+        combined_wav, sample_rate = sf.read(track_path)
+        tracks.append(combined_wav)
+    wav_overlayed = np.array(tracks).mean(axis=0)
+
+    return gr.Audio.update(value=(cfg.tts.sample_rate, wav_overlayed), visible=True)
