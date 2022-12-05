@@ -196,7 +196,7 @@ def reread(title, text, utterance_idx, speaker_name, user_email):
     return (cfg.tts.sample_rate, gen), new_speaker.name
 
 
-def combine(title, user_email):
+def combine(title, user_email, load_duration_sec=120):
     db = SessionLocal()
 
     user: User = crud.get_user_by_email(db, user_email)
@@ -244,9 +244,13 @@ def combine(title, user_email):
 
     db.close()
 
+    # there is no need it sending gigabytes of data to front-end,
+    # so loading load_duration_sec amount is sufficient.
     tracks = []
     for track_path in combined_dir.glob("*.wav"):
-        combined_wav, sample_rate = sf.read(track_path)
+        start = int(0*cfg.tts.sample_rate)
+        stop = start + int(load_duration_sec*cfg.tts.sample_rate)
+        combined_wav, sample_rate = sf.read(track_path, start=start, stop=stop)
         tracks.append(combined_wav)
     wav_overlayed = np.array(tracks).mean(axis=0)
 
