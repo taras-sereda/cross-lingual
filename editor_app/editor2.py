@@ -72,7 +72,7 @@ with gr.Blocks() as editor:
             for i in range(cfg.editor.max_utterance):
 
                 utter_idx = gr.Number(visible=False, precision=0)
-                utter_speaker = gr.Textbox(label=f'speaker name', visible=False)
+                utter_speaker = gr.Textbox(label='speaker name', visible=False)
                 utter_text = gr.Textbox(label=f'utterance_{i}', visible=False, show_label=False)
                 utter_audio = gr.Audio(label=f'audio_{i}', visible=False, show_label=False)
 

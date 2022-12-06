@@ -1,9 +1,12 @@
+from pathlib import Path
+
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import create_engine
 
 from . import cfg
 
-SQLALCHEMY_DATABASE_URL = f'sqlite:///./{cfg.db.name}'
+db_absolute_path = Path(__file__).parent.parent.joinpath(cfg.db.name)
+SQLALCHEMY_DATABASE_URL = f'sqlite:///{db_absolute_path}'
 # engine = create_engine('sqlite:///:memory:', echo=True, future=True)
 # engine = create_engine("sqlite://")
 # above two are equivalent.

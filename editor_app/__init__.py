@@ -1,9 +1,9 @@
-import os
+from pathlib import Path
 
 import torch
 from omegaconf import OmegaConf
 
-cfg = OmegaConf.load('config.yaml')
+cfg = OmegaConf.load(Path(__file__).parent.parent.joinpath('config.yaml'))
 
 if torch.cuda.is_available():
     preset = 'standard'
@@ -38,4 +38,4 @@ children would be his first.
 
 """
 
-example_voice_sample_path = os.path.join(os.path.dirname(__file__), '../data/VLND2ptAOio.clip.24000.wav')
+example_voice_sample_path = Path(__file__).parent.parent.joinpath('data/VLND2ptAOio.clip.24000.wav')
