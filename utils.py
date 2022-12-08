@@ -8,6 +8,8 @@ timecode_re = re.compile(r"\[[\d\s:\.\->]+\]")
 speaker_re = re.compile(r"{\w+}")
 double_new_line = re.compile(r"\n\s*\n")
 punctuation_re = re.compile(r"[^\w\s]")
+acronym_re = re.compile(r"[A-Z]{2,}")
+multi_space_re = re.compile(r" +")
 
 
 def split_on_speaker_change(raw_text: str):
@@ -68,3 +70,10 @@ def compute_string_similarity(str1: str, str2: str) -> float:
     dist = Levenshtein.distance(str1, str2)
 
     return 1 - dist / max(len(str1), len(str2))
+
+
+def acronym_preprocessing(text):
+    # So far it's a table based approach
+    # return re.sub('AI', 'Artificial intelligence', text)
+    # re sub accepts functions as a repl arguments, are cool!
+    return re.sub(acronym_re, lambda m: '.'.join(m.group()), text)
