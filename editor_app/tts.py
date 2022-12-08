@@ -211,36 +211,35 @@ def combine(title, user_email, load_duration_sec=120):
     combined_dir = utterances[0].get_audio_path().parent.joinpath('combined')
     combined_dir.mkdir(exist_ok=True)
 
-    if not list(combined_dir.glob("*.wav")):
-        unique_speakers = set([utter.speaker_id for utter in utterances])
-        project_audio_tracks = defaultdict(list)
-        metadata = []
-        start_sec = 0
-        for utterance in utterances:
-            utter_audio, sample_rate = sf.read(utterance.get_audio_path())
+    unique_speakers = set([utter.speaker_id for utter in utterances])
+    project_audio_tracks = defaultdict(list)
+    metadata = []
+    start_sec = 0
+    for utterance in utterances:
+        utter_audio, sample_rate = sf.read(utterance.get_audio_path())
 
-            assert utter_audio.ndim == 1
-            n_sample = utter_audio.shape[0]
-            project_audio_tracks[utterance.speaker_id].extend(utter_audio)
+        assert utter_audio.ndim == 1
+        n_sample = utter_audio.shape[0]
+        project_audio_tracks[utterance.speaker_id].extend(utter_audio)
 
-            silence_audio = np.zeros_like(utter_audio)
-            for other_spkr_id in (unique_speakers - {utterance.speaker_id}):
-                project_audio_tracks[other_spkr_id].extend(silence_audio)
+        silence_audio = np.zeros_like(utter_audio)
+        for other_spkr_id in (unique_speakers - {utterance.speaker_id}):
+            project_audio_tracks[other_spkr_id].extend(silence_audio)
 
-            end_sec = start_sec + n_sample / sample_rate
-            metadata.append({
-                'start_sec': f'{start_sec:.3f}',
-                'end_sec': f'{end_sec:.3f}',
-                'speaker_id': utterance.speaker_id,
-                'speaker_name': utterance.speaker.name
-            })
-            start_sec = end_sec
+        end_sec = start_sec + n_sample / sample_rate
+        metadata.append({
+            'start_sec': f'{start_sec:.3f}',
+            'end_sec': f'{end_sec:.3f}',
+            'speaker_id': utterance.speaker_id,
+            'speaker_name': utterance.speaker.name
+        })
+        start_sec = end_sec
 
-        for k, v in project_audio_tracks.items():
-            sf.write(combined_dir.joinpath(f'combined_{k}.wav'), v, cfg.tts.sample_rate)
+    for k, v in project_audio_tracks.items():
+        sf.write(combined_dir.joinpath(f'combined_{k}.wav'), v, cfg.tts.sample_rate)
 
-        with open(combined_dir.joinpath('metadata.json'), 'w') as fd:
-            json.dump(metadata, fd)
+    with open(combined_dir.joinpath('metadata.json'), 'w') as fd:
+        json.dump(metadata, fd)
 
     db.close()
 
