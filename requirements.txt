@@ -12,3 +12,5 @@ pyannote.audio
 pydub
 deepl
 levenshtein
+python-podcastindex
+sqlacodegen
