@@ -116,7 +116,7 @@ def playground_read(text, speaker_name, user_email):
         raise Exception(f"Speaker {speaker_name} doesn't exists. Add it first")
     voice_samples, conditioning_latents = load_voices([speaker_name], [new_speaker.get_speaker_data_root().parent])
     gen = tts_model.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
-                                    preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed,
+                                    preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=None,
                                     num_autoregressive_samples=cfg.tts.num_autoregressive_samples)
     gen = gen.cpu().numpy().squeeze()
     db.close()
@@ -179,8 +179,9 @@ def reread(title, text, utterance_idx, speaker_name, user_email):
                         f"Normally this shouldn't happen")
     start_time = datetime.now()
     voice_samples, conditioning_latents = load_voices([speaker_name], [new_speaker.get_speaker_data_root().parent])
+    # in favour of variation seed should be None
     gen = tts_model.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
-                                    preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=cfg.tts.seed,
+                                    preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=None,
                                     num_autoregressive_samples=cfg.tts.num_autoregressive_samples)
     gen = gen.cpu().numpy().squeeze()
 
