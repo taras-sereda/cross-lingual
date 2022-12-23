@@ -232,7 +232,8 @@ def combine(title, user_email, load_duration_sec=120):
             'start_sec': f'{start_sec:.3f}',
             'end_sec': f'{end_sec:.3f}',
             'speaker_id': utterance.speaker_id,
-            'speaker_name': utterance.speaker.name
+            'speaker_name': utterance.speaker.name,
+            'text': utterance.text,
         })
         start_sec = end_sec
 
