@@ -34,13 +34,16 @@ with gr.Blocks() as submitter:
 
                 playground_outputs = []
                 for i_audio in range(cfg.tts.playground.candidates):
-                    playground_outputs.append(gr.Text(label=f'STT text {i_audio}'))
-                    playground_outputs.append(gr.Number(label=f'similarity score {i_audio}', precision=3))
-                    playground_outputs.append(gr.Audio(label=f'audio {i_audio}'))
+                    with gr.Row():
+                        elems = [gr.Text(label=f'STT text {i_audio}'),
+                                 gr.Number(label=f'similarity score {i_audio}', precision=3),
+                                 gr.Audio(label=f'audio {i_audio}')
+                                 ]
+                        playground_outputs.extend(elems)
 
-                playground_button.click(fn=playground_read,
-                                        inputs=[playground_text, playground_spkr, email],
-                                        outputs=playground_outputs)
+            playground_button.click(fn=playground_read,
+                                    inputs=[playground_text, playground_spkr, email],
+                                    outputs=playground_outputs)
 
         button.click(fn=read, inputs=[title, text, email], outputs=[])
 
@@ -78,7 +81,7 @@ with gr.Blocks() as editor:
                 utter_speaker = gr.Textbox(label='speaker name', visible=False)
                 utter_text = gr.Textbox(label=f'utterance_{i}', visible=False, show_label=False)
                 utter_audio = gr.Audio(label=f'audio_{i}', visible=False, show_label=False)
-
+                utter_score = gr.Number(label='score', visible=False)
                 try_again = gr.Button(value='try again', visible=False)
                 try_again.click(fn=reread,
                                 inputs=[title, utter_text, utter_idx, utter_speaker, email],
