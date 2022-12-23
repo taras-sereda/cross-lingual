@@ -114,10 +114,15 @@ def read(title, raw_text, user_email):
 def playground_read(text, speaker_name, user_email):
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
-    db_speaker: Speaker = crud.get_speaker_by_name(db, speaker_name, user.id)
-    if not db_speaker:
-        raise Exception(f"Speaker {speaker_name} doesn't exists. Add it first")
-    voice_samples, conditioning_latents = load_voices([speaker_name], [db_speaker.get_speaker_data_root().parent])
+    # support of multiple speakers
+    spkr_to_spkr_root = dict()
+    for spkr in speaker_name.split('&'):
+        db_speaker: Speaker = crud.get_speaker_by_name(db, spkr, user.id)
+        if not db_speaker:
+            raise Exception(f"Speaker {spkr} doesn't exists. Add it first")
+        spkr_to_spkr_root[db_speaker.name] = db_speaker.get_speaker_data_root().parent
+
+    voice_samples, conditioning_latents = load_voices(list(spkr_to_spkr_root.keys()), list(spkr_to_spkr_root.values()))
     gen = tts_model.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
                                     preset=cfg.tts.preset, k=cfg.tts.playground.candidates, use_deterministic_seed=None,
                                     num_autoregressive_samples=cfg.tts.num_autoregressive_samples)
