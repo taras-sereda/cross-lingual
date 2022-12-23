@@ -11,6 +11,8 @@ tts:
   sample_rate: 24_000
   num_autoregressive_samples: 16
   preset: ???
+  playground:
+    candidates: 4
 
 stt:
   sample_rate: 16_000

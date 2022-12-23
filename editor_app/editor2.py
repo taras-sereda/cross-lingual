@@ -31,13 +31,16 @@ with gr.Blocks() as submitter:
                 playground_spkr = gr.Text(label='speaker')
                 playground_text = gr.Text(label='text')
                 playground_button = gr.Button(value='try again')
-                playground_similarity = gr.Number(label='similarity score', precision=3)
-                playground_stt_text = gr.Text(label='STT text')
-                playground_audio = gr.Audio(label='audio')
+
+                playground_outputs = []
+                for i_audio in range(cfg.tts.playground.candidates):
+                    playground_outputs.append(gr.Text(label=f'STT text {i_audio}'))
+                    playground_outputs.append(gr.Number(label=f'similarity score {i_audio}', precision=3))
+                    playground_outputs.append(gr.Audio(label=f'audio {i_audio}'))
 
                 playground_button.click(fn=playground_read,
                                         inputs=[playground_text, playground_spkr, email],
-                                        outputs=[playground_stt_text, playground_similarity, playground_audio, playground_spkr])
+                                        outputs=playground_outputs)
 
         button.click(fn=read, inputs=[title, text, email], outputs=[])
 

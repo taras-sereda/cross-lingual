@@ -111,20 +111,25 @@ def read(title, raw_text, user_email):
 def playground_read(text, speaker_name, user_email):
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
-    new_speaker: Speaker = crud.get_speaker_by_name(db, speaker_name, user.id)
-    if not new_speaker:
+    db_speaker: Speaker = crud.get_speaker_by_name(db, speaker_name, user.id)
+    if not db_speaker:
         raise Exception(f"Speaker {speaker_name} doesn't exists. Add it first")
-    voice_samples, conditioning_latents = load_voices([speaker_name], [new_speaker.get_speaker_data_root().parent])
+    voice_samples, conditioning_latents = load_voices([speaker_name], [db_speaker.get_speaker_data_root().parent])
     gen = tts_model.tts_with_preset(text, voice_samples=voice_samples, conditioning_latents=conditioning_latents,
-                                    preset=cfg.tts.preset, k=cfg.tts.candidates, use_deterministic_seed=None,
+                                    preset=cfg.tts.preset, k=cfg.tts.playground.candidates, use_deterministic_seed=None,
                                     num_autoregressive_samples=cfg.tts.num_autoregressive_samples)
-    gen = gen.cpu().numpy().squeeze()
     db.close()
+    outputs = []
+    for g in gen:
+        g = g.cpu().numpy().squeeze()
+        stt_res = stt_model.transcribe(g)
+        stt_text = stt_res['text']
+        similarity = compute_string_similarity(text, stt_text)
+        outputs.append(stt_text)
+        outputs.append(similarity)
+        outputs.append((cfg.tts.sample_rate, g))
 
-    stt_res = stt_model.transcribe(gen)
-    stt_text = stt_res['text']
-    similarity = compute_string_similarity(text, stt_text)
-    return stt_text, similarity, (cfg.tts.sample_rate, gen), new_speaker.name
+    return outputs
 
 
 def load(project_name: str, user_email: str, from_idx: int):
