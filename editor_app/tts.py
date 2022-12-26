@@ -11,7 +11,7 @@ from tortoise.api import TextToSpeech
 from tortoise.utils.audio import load_voices
 from tortoise.utils.text import split_and_recombine_text
 
-from utils import compute_string_similarity, split_on_raw_utterances, speaker_re
+from utils import compute_string_similarity, split_on_raw_utterances, raw_speaker_re
 from datatypes import RawUtterance
 from . import schemas, crud, cfg
 from .database import SessionLocal
@@ -28,7 +28,7 @@ def add_speaker(audio_tuple, speaker_name, user_email):
     if not user:
         raise Exception(f"User {user_email} not found. Provide valid email")
 
-    if not speaker_re.match(speaker_name):
+    if not raw_speaker_re.fullmatch(speaker_name):
         raise Exception(f"Invalid speaker name")
 
     if speaker_name in [spkr.name for spkr in user.speakers]:
