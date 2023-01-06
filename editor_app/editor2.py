@@ -9,7 +9,7 @@ with gr.Blocks() as submitter:
         with gr.Column(scale=1) as col0:
             email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
 
-            reference_audio = gr.Audio(label='reference audio')
+            reference_audio = gr.Files(label='reference audio', file_types=['audio'])
             speaker_name = gr.Textbox(label='Speaker name', placeholder='Enter speaker name, allowed symbols: lower case letters, numbers, and _')
             add_speaker_button = gr.Button('Add speaker')
             speakers = gr.Textbox(label='speakers')

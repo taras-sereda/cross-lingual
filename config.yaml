@@ -8,6 +8,7 @@ editor:
 tts:
   seed: 42
   candidates: 1
+  spkr_emb_sample_rate: 22_050
   sample_rate: 24_000
   num_autoregressive_samples: 16
   preset: ???

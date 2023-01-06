@@ -8,7 +8,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 
 from tortoise.api import TextToSpeech
-from tortoise.utils.audio import load_voices
+from tortoise.utils.audio import load_voices, load_audio
 from tortoise.utils.text import split_and_recombine_text
 
 from utils import compute_string_similarity, split_on_raw_utterances, raw_speaker_re
@@ -38,9 +38,10 @@ def add_speaker(audio_tuple, speaker_name, user_email):
     speaker = crud.create_speaker(db, speaker_name, user.id)
 
     # save data on disk
-    wav_path = speaker.get_speaker_data_root().joinpath('1.wav')
-    sample_rate, audio = audio_tuple
-    sf.write(wav_path, audio, sample_rate)
+    for idx, audio_temp_file in enumerate(audio_tuple):
+        wav_path = speaker.get_speaker_data_root().joinpath(f'{idx:03}.wav')
+        data = load_audio(audio_temp_file.name, sampling_rate=cfg.tts.spkr_emb_sample_rate)
+        sf.write(wav_path, data.squeeze(0), cfg.tts.spkr_emb_sample_rate)
     db.close()
 
 
