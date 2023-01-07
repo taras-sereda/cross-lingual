@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, Text
 
-from podindex import Base
+from . import Base
 
 
 class Podcast(Base):

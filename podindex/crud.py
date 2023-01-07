@@ -3,7 +3,7 @@ import time
 from itertools import groupby
 from sqlalchemy.orm import Session
 
-from podindex.models import Podcast
+from .models import Podcast
 
 DATE_THRESHOLD = time.mktime(datetime.date(2022, 12, 1).timetuple())
 
