@@ -13,7 +13,8 @@ def get_podcasts(db: Session, limit=1000) -> list[Podcast]:
         limit = int(1e9)
     podcasts = db.query(Podcast).filter(Podcast.dead == 0,
                                         Podcast.episodeCount >= 10,
-                                        Podcast.newestItemPubdate > DATE_THRESHOLD).limit(limit).all()
+                                        Podcast.newestItemPubdate > DATE_THRESHOLD
+                                        ).limit(limit).all()
     return podcasts
 
 
