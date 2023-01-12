@@ -14,12 +14,14 @@ from .stt import stt_model
 diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_auth_token=cfg.diarization.auth_token)
 
 
-def transcribe(audio_data: Tuple[int, np.ndarray]):
+def transcribe(audio_data: Tuple[int, np.ndarray], language):
     """Transcribe input media with speaker diarization, resulting transcript will be in form:
     [ HH:MM:SS.sss --> HH:MM:SS.sss ]
     {SPEAKER}
     Transcribed text
     """
+    if len(language) == 0:
+        language = None
 
     sample_rate, waveform = audio_data
     if waveform.ndim == 1:
@@ -37,7 +39,7 @@ def transcribe(audio_data: Tuple[int, np.ndarray]):
     segments = []
     for seg, _, speaker in diarizations.itertracks(yield_label=True):
         seg_wav = stt_waveform[int(seg.start * cfg.stt.sample_rate): int(seg.end * cfg.stt.sample_rate)]
-        seg_trans_res = stt_model.transcribe(seg_wav)
+        seg_trans_res = stt_model.transcribe(seg_wav, language=language)
         segments.append([seg, speaker, seg_trans_res['text'], seg_trans_res['language']])
     res = ''
     char_count = 0
@@ -54,13 +56,14 @@ with gr.Blocks() as transcriber:
         with gr.Column(scale=1) as col0:
             project_name = gr.Text(label='Project name', placeholder="enter your project name")
             audio = gr.Audio(label='Audio for transcription')
+            input_lang = gr.Text(label='input language')
 
         with gr.Column(scale=1) as col1:
             text = gr.Text(label='Text transcription', interactive=True)
-            lang = gr.Text(label='Detected language')
+            detected_lang = gr.Text(label='Detected language')
             num_chars = gr.Number(label='Number of characters')
             button = gr.Button(value='Go!')
-        button.click(transcribe, inputs=[audio], outputs=[text, lang, num_chars])
+        button.click(transcribe, inputs=[audio, input_lang], outputs=[text, detected_lang, num_chars])
 
     gr.Markdown("Audio examples")
     gr.Examples([example_voice_sample_path], [audio])
