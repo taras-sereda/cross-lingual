@@ -2,7 +2,7 @@ import pathlib
 from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Boolean
 from sqlalchemy.orm import relationship
 
-from . import cfg
+from . import data_root
 from .database import Base
 
 
@@ -17,7 +17,7 @@ class User(Base):
 
     def get_user_data_root(self) -> pathlib.Path:
         dir_name = f'{self.id:03}_{self.name.lower()}'
-        dir_path = pathlib.Path(cfg.db.data_root).joinpath(dir_name)
+        dir_path = data_root.joinpath(dir_name)
         if not dir_path.exists():
             dir_path.mkdir(parents=True, exist_ok=True)
 

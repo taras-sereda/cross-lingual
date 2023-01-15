@@ -3,15 +3,18 @@ from typing import Tuple
 import gradio as gr
 import torch
 import numpy as np
+import soundfile as sf
 
 from torchaudio.transforms import Resample
 from pyannote.audio import Pipeline
 
-from . import cfg, example_voice_sample_path
+from . import cfg, data_root, example_voice_sample_path
 from .stt import stt_model
 
-
 diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_auth_token=cfg.diarization.auth_token)
+
+temp_dir_path = data_root.joinpath('temp')
+temp_dir_path.mkdir(exist_ok=True)
 
 
 def transcribe(audio_data: Tuple[int, np.ndarray], language):
@@ -35,17 +38,27 @@ def transcribe(audio_data: Tuple[int, np.ndarray], language):
     stt_waveform = Resample(orig_freq=sample_rate, new_freq=cfg.stt.sample_rate)(waveform)
     stt_waveform = stt_waveform.squeeze(0)
     stt_waveform = stt_waveform / 32768.0
-
-    segments = []
-    for seg, _, speaker in diarizations.itertracks(yield_label=True):
-        seg_wav = stt_waveform[int(seg.start * cfg.stt.sample_rate): int(seg.end * cfg.stt.sample_rate)]
-        seg_trans_res = stt_model.transcribe(seg_wav, language=language)
-        segments.append([seg, speaker, seg_trans_res['text'], seg_trans_res['language']])
-    res = ''
     char_count = 0
-    for seg in segments:
-        res += f"{seg[0]}\n{{{seg[1]}}}\n{seg[2]}\n\n"
-        char_count += len(seg[2])
+    res = ''
+    segments = []
+    ffmpeg_str = ''
+
+    for idx, (seg, _, speaker) in enumerate(diarizations.itertracks(yield_label=True)):
+        seg_wav = stt_waveform[int(seg.start * cfg.stt.sample_rate): int(seg.end * cfg.stt.sample_rate)]
+        seg_res = stt_model.transcribe(seg_wav, language=language)
+        text = seg_res['text']
+        lang = seg_res['language']
+        segments.append([seg, speaker, text, lang])
+        res += f"{seg}\n{{{speaker}}}\n{text}\n\n"
+        char_count += len(seg_res['text'])
+        seg_name = f'output_{idx:03}.wav'
+        ffmpeg_str += f' -ss {seg.start} -to {seg.end} -c copy {seg_name}'
+        # TODO. investigate. saved wavs sound really bad, looks like they are broken.
+        # seg_path = temp_dir_path.joinpath(seg_name)
+        # orig_seg_wav = waveform[0, int(seg.start * sample_rate): int(seg.end * sample_rate)]
+        # sf.write(seg_path, orig_seg_wav, cfg.stt.sample_rate)
+    # quick and dirty way to cut audio on pieces with ffmpeg.
+    print(ffmpeg_str)
     detected_lang = segments[0][-1]
 
     return res, detected_lang, char_count

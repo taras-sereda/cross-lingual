@@ -3,7 +3,9 @@ from pathlib import Path
 import torch
 from omegaconf import OmegaConf
 
-cfg = OmegaConf.load(Path(__file__).parent.parent.joinpath('config.yaml'))
+prj_root = Path(__file__).parent.parent
+cfg = OmegaConf.load(prj_root.joinpath('config.yaml'))
+data_root = prj_root.joinpath(cfg.db.data_root)
 
 if torch.cuda.is_available():
     preset = 'standard'

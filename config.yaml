@@ -1,6 +1,6 @@
 db:
   name: 'test.db'
-  data_root: './user_data'
+  data_root: 'user_data'
 
 editor:
   max_utterance: 5
