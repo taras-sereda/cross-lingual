@@ -33,12 +33,10 @@ if __name__ == '__main__':
 
     db = SessionLocal()
     podcasts = get_podcasts(db, 2000)
-    available_feeds = data_root.glob("*.xml")
-    temp = []
     pods_num_without_email = 0
     pods_num = 0
     for pod in podcasts:
-        feed_path = data_root.joinpath(f'{pod.podcastGuid}.xml')
+        feed_path = data_root.joinpath(f'rss/{pod.podcastGuid}.xml')
         if not feed_path.exists():
             continue
         with open(feed_path, 'r') as fd:
