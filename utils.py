@@ -10,6 +10,7 @@ speaker_re = re.compile(r"{\w+}")
 double_new_line = re.compile(r"\n\s*\n")
 punctuation_re = re.compile(r"[^\w\s]")
 acronym_re = re.compile(r"[A-Z]{2,}")
+email_re = re.compile(r"\w+@\w+\.\w+")
 multi_space_re = re.compile(r" +")
 
 

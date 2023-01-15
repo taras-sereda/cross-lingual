@@ -5,18 +5,13 @@ import csv
 import os
 import random
 import time
-from pathlib import Path
 
 import aiohttp
 import requests
 import tqdm
 
-from podindex import SessionLocal
+from podindex import SessionLocal, data_root
 from podindex.crud import get_podcasts
-
-data_root = Path('podindex-data')
-if not data_root.exists():
-    data_root.mkdir(exist_ok=True)
 
 
 async def get_rss(sess, podcast):

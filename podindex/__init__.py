@@ -10,3 +10,7 @@ engine = create_engine(f"sqlite:///{db_absolute_path}", connect_args={'check_sam
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+data_root = Path(__file__).parent.parent.joinpath('podindex-data')
+if not data_root.exists():
+    data_root.mkdir(exist_ok=True)
