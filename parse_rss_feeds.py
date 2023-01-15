@@ -1,4 +1,4 @@
-from podindex import SessionLocal, data_root
+from podindex import SessionLocal, podidx_data_root
 from podindex.crud import get_podcasts
 from utils import email_re
 import xml.etree.ElementTree as ET
@@ -36,7 +36,7 @@ if __name__ == '__main__':
     pods_num_without_email = 0
     pods_num = 0
     for pod in podcasts:
-        feed_path = data_root.joinpath(f'rss/{pod.podcastGuid}.xml')
+        feed_path = podidx_data_root.joinpath(f'rss/{pod.podcastGuid}.xml')
         if not feed_path.exists():
             continue
         with open(feed_path, 'r') as fd:

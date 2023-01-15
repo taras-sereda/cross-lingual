@@ -10,12 +10,12 @@ import aiohttp
 import requests
 import tqdm
 
-from podindex import SessionLocal, data_root
+from podindex import SessionLocal, podidx_data_root
 from podindex.crud import get_podcasts
 
 
 async def get_rss(sess, podcast):
-    output_path = data_root.joinpath(f'rss/{podcast.podcastGuid}.xml')
+    output_path = podidx_data_root.joinpath(f'rss/{podcast.podcastGuid}.xml')
     try:
         sleep_prob = random.random()
         if sleep_prob > 0.8:
@@ -36,7 +36,7 @@ async def get_rss(sess, podcast):
 
 
 def get_rss_sequentially(podcast):
-    output_path = data_root.joinpath(f'rss/{podcast.podcastGuid}.xml')
+    output_path = podidx_data_root.joinpath(f'rss/{podcast.podcastGuid}.xml')
     try:
         resp = requests.get(podcast.originalUrl)
         if resp.status_code != 200:
@@ -60,7 +60,7 @@ def filter_already_downloaded_or_broken(podcasts, broke_csv_path=None):
 
     res = []
     for item in podcasts:
-        output_path = data_root.joinpath(f'rss/{item.podcastGuid}.xml')
+        output_path = podidx_data_root.joinpath(f'rss/{item.podcastGuid}.xml')
         if output_path.exists() and output_path.stat().st_size > 1000:
             continue
         if item.podcastGuid in broken_guids:
@@ -89,7 +89,7 @@ def main_multiproc():
     podcasts = get_podcasts(db, -1)
     print(f'Total amount of podcasts {len(podcasts)}')
 
-    csv_path = data_root.joinpath('broken_guids.csv')
+    csv_path = podidx_data_root.joinpath('broken_guids.csv')
     podcasts = filter_already_downloaded_or_broken(podcasts, csv_path)
     random.shuffle(podcasts)
     print(f'After filtering, total amount of podcasts {len(podcasts)}')

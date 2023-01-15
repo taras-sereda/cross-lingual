@@ -5,12 +5,12 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 podidx_cfg = OmegaConf.load(Path(__file__).parent.parent.joinpath('config.yaml')).podcastindex
 
-db_absolute_path = Path(__file__).parent.parent.joinpath(podidx_cfg.db.name)
+podidx_data_root = Path(__file__).parent.parent.joinpath('podindex-data')
+if not podidx_data_root.exists():
+    podidx_data_root.mkdir(exist_ok=True)
+
+db_absolute_path = podidx_data_root.joinpath(podidx_cfg.db.name)
 engine = create_engine(f"sqlite:///{db_absolute_path}", connect_args={'check_same_thread': False}, future=True)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
-
-data_root = Path(__file__).parent.parent.joinpath('podindex-data')
-if not data_root.exists():
-    data_root.mkdir(exist_ok=True)

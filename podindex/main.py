@@ -2,11 +2,11 @@ import csv
 from datetime import datetime
 from itertools import groupby
 
-from podindex import SessionLocal, data_root
+from podindex import SessionLocal, podidx_data_root
 from podindex.crud import get_podcasts
 
 if __name__ == '__main__':
-    output_path = data_root.parent.joinpath('multileng_podcasters2.csv')
+    output_path = podidx_data_root.joinpath('multileng_podcasters.csv')
     if output_path.exists():
         exit()
 
