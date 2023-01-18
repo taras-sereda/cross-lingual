@@ -43,6 +43,24 @@ class Utterance(UtteranceBase):
         orm_mode = True
 
 
+class UtteranceSTTBase(BaseModel):
+    text: str
+    orig_utterance_id: int
+    date: datetime
+    levenstein_similarity: float
+
+
+class UtteranceSTTCreate(UtteranceSTTBase):
+    pass
+
+
+class UtteranceSTT(UtteranceSTTBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+
 class UserBase(BaseModel):
     email: str
     name: str

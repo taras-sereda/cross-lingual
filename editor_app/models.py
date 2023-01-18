@@ -1,5 +1,5 @@
 import pathlib
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Boolean, Float
 from sqlalchemy.orm import relationship
 
 from . import data_root
@@ -65,7 +65,7 @@ class Utterance(Base):
 
     id = Column(Integer, primary_key=True)
     text = Column(String, nullable=False)
-    utterance_idx = Column(Integer, nullable=False)
+    utterance_idx = Column(Integer, nullable=False)  # ordinal idx withing the project
     date_started = Column(DateTime, nullable=False)
     date_completed = Column(DateTime)
     project_id = Column(Integer, ForeignKey("project.id"))
@@ -76,3 +76,13 @@ class Utterance(Base):
 
     def get_audio_path(self) -> pathlib.Path:
         return self.project.get_project_data_root().joinpath(f'{self.utterance_idx}.wav')
+
+
+class UtteranceSTT(Base):
+    __tablename__ = "utterance_stt"
+
+    id = Column(Integer, primary_key=True)
+    text = Column(String, nullable=False)
+    date = Column(DateTime, nullable=False)
+    levenstein_similarity = Column(Float)
+    orig_utterance_id = Column(Integer, ForeignKey("utterance.id"))

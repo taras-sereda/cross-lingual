@@ -70,3 +70,11 @@ def update_any_db_row(db: Session, db_row, **kwargs):
     db.commit()
     db.refresh(db_row)
     return db_row
+
+
+def create_utterance_stt(db: Session, utterance_stt: schemas.UtteranceSTTCreate):
+    db_utterance_stt = models.UtteranceSTT(**utterance_stt.dict())
+    db.add(db_utterance_stt)
+    db.commit()
+    db.refresh(db_utterance_stt)
+    return db_utterance_stt
