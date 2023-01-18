@@ -60,15 +60,16 @@ def split_on_raw_utterances(raw_text: str) -> list[RawUtterance]:
     return utterances
 
 
-def compute_string_similarity(str1: str, str2: str) -> float:
+def compute_string_similarity(str1: str, str2: str, normalize=True) -> float:
     """
     String similarity ignoring punctuation.
     """
-    str1 = re.sub(punctuation_re, '', str1)
-    str1 = str1.strip()
+    if normalize:
+        str1 = re.sub(punctuation_re, '', str1)
+        str1 = str1.strip().lower()
 
-    str2 = re.sub(punctuation_re, '', str2)
-    str2 = str2.strip()
+        str2 = re.sub(punctuation_re, '', str2)
+        str2 = str2.strip().lower()
     dist = Levenshtein.distance(str1, str2)
 
     return 1 - dist / max(len(str1), len(str2))
