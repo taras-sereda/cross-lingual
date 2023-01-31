@@ -1,5 +1,6 @@
 import json
 import re
+from pathlib import Path
 
 import numpy as np
 from datasets import load_dataset, load_metric
@@ -91,6 +92,9 @@ if __name__ == '__main__':
     tokenizer_type = config.model_type if config.tokenizer_class is None else None
     config = config if config.tokenizer_class is not None else None
 
+    model_checkpoint_name = model_checkpoint.split("/")[-1]
+    repo_name = Path(f"./{model_checkpoint_name}-spanish-mls")
+
     tokenizer = AutoTokenizer.from_pretrained(
         "./",
         config=config,
@@ -99,8 +103,8 @@ if __name__ == '__main__':
         pad_token="[PAD]",
         word_delimiter_token="|",
     )
-    model_checkpoint_name = model_checkpoint.split("/")[-1]
-    repo_name = f"{model_checkpoint_name}-spanish-mls"
+
+    tokenizer.save_pretrained(repo_name)
 
     feature_extractor = AutoFeatureExtractor.from_pretrained(model_checkpoint)
     processor = Wav2Vec2Processor(feature_extractor=feature_extractor, tokenizer=tokenizer)
@@ -126,12 +130,12 @@ if __name__ == '__main__':
         model.freeze_feature_extractor()
 
     training_args = TrainingArguments(
-        output_dir=repo_name,
+        output_dir=str(repo_name),
         group_by_length=True,
         per_device_train_batch_size=batch_size,
         gradient_accumulation_steps=2,
         evaluation_strategy="steps",
-        num_train_epochs=30,
+        num_train_epochs=40,
         gradient_checkpointing=True,
         fp16=True,
         save_steps=400,
