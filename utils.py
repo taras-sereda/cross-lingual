@@ -5,6 +5,7 @@ import Levenshtein
 from datatypes import RawUtterance
 
 timecode_re = re.compile(r"\[[\d\s:\.\->]+\]")
+time_re = re.compile(r"[\d:\.]+")
 raw_speaker_re = re.compile(r"\w+")
 speaker_re = re.compile(r"{\w+}")
 double_new_line = re.compile(r"\n\s*\n")
