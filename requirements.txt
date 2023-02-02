@@ -16,3 +16,4 @@ python-podcastindex
 sqlacodegen
 aiohttp
 datasets
+speechbrain
