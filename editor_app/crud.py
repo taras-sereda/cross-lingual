@@ -78,3 +78,7 @@ def create_utterance_stt(db: Session, utterance_stt: schemas.UtteranceSTTCreate)
     db.commit()
     db.refresh(db_utterance_stt)
     return db_utterance_stt
+
+
+def get_utterances_stt(db: Session):
+    return db.query(models.UtteranceSTT).all()
