@@ -11,13 +11,12 @@ from tortoise.api import TextToSpeech
 from tortoise.utils.audio import load_voices, load_audio
 from tortoise.utils.text import split_and_recombine_text
 
-from utils import compute_string_similarity, split_on_raw_utterances, raw_speaker_re
+from utils import compute_string_similarity, split_on_raw_utterances, raw_speaker_re, time_re
 from datatypes import RawUtterance
 from . import schemas, crud, cfg
 from .database import SessionLocal
 from .models import User, Project, Utterance, Speaker
 from .stt import stt_model
-
 
 tts_model = TextToSpeech()
 
@@ -263,10 +262,65 @@ def combine(title, user_email, load_duration_sec=120):
     # so loading load_duration_sec amount is sufficient.
     tracks = []
     for track_path in combined_dir.glob("*.wav"):
-        start = int(0*cfg.tts.sample_rate)
-        stop = start + int(load_duration_sec*cfg.tts.sample_rate)
+        start = int(0 * cfg.tts.sample_rate)
+        stop = start + int(load_duration_sec * cfg.tts.sample_rate)
         combined_wav, sample_rate = sf.read(track_path, start=start, stop=stop)
         tracks.append(combined_wav)
     wav_overlayed = np.array(tracks).mean(axis=0)
 
     return gr.Audio.update(value=(cfg.tts.sample_rate, wav_overlayed), visible=True)
+
+
+def time_to_sec(time: str) -> float:
+    hour, min, other = time.split(':')
+    sec, msec = other.split('.')
+    return int(hour) * 60 * 60 + int(min) * 60 + int(sec) + int(msec) / 1000
+
+
+def timecode_to_timerange(timecode: str, sample_rate: int) -> tuple[int, int]:
+    res = time_re.findall(timecode)
+    assert len(res) == 2
+    start_sec = time_to_sec(res[0])
+    end_sec = time_to_sec(res[1])
+    start_frame = int(start_sec * sample_rate)
+    end_frame = int(end_sec * sample_rate)
+    return start_frame, end_frame
+
+
+def timecode_based_combine(utterances: list[Utterance]):
+    """
+    This method will only make sense if total duration of all utterances
+    is shorter than duration of reference video.
+
+    """
+    temp_utterances = []
+    cur_timecode = utterances[0].timecode
+    cur_group = []
+    for utter in utterances:
+        utter_audio, sample_rate = sf.read(utter.get_audio_path())
+
+        assert utter_audio.ndim == 1
+
+        if utter.timecode == cur_timecode:
+            cur_group.extend(list(utter_audio))
+        else:
+            time_range = timecode_to_timerange(cur_timecode, sample_rate)
+            temp_utterances.append((time_range, cur_group))
+            cur_timecode = utter.timecode
+            cur_group = list(utter_audio)
+
+    res = []
+    for item in temp_utterances:
+        time_range, utter_wav = item
+        s, e = time_range
+        # pad with silence
+        print(s, e, len(res))
+        if s > len(res):
+            silence_duration = len(res) - s
+            silence_seg = [0] * silence_duration
+            res.extend(silence_seg)
+        res.extend(utter_wav)
+
+    combined_dir = utterances[0].get_audio_path().parent.joinpath('combined')
+    combined_dir.mkdir(exist_ok=True)
+    sf.write(combined_dir.joinpath(f'timecode_combined.wav'), res, cfg.tts.sample_rate)

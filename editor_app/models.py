@@ -73,6 +73,7 @@ class Utterance(Base):
     timecode = Column(String, nullable=True)
     project = relationship("Project", back_populates="utterances")
     speaker = relationship("Speaker", back_populates="utterances", lazy="joined")
+    utterance_stt = relationship("UtteranceSTT", backref='utter_stt')
 
     def get_audio_path(self) -> pathlib.Path:
         return self.project.get_project_data_root().joinpath(f'{self.utterance_idx}.wav')
