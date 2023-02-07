@@ -78,16 +78,19 @@ with gr.Blocks() as editor:
             for i in range(cfg.editor.max_utterance):
 
                 utter_idx = gr.Number(visible=False, precision=0)
-                utter_speaker = gr.Textbox(label='speaker name', visible=False)
+                with gr.Row():
+                    utter_speaker = gr.Textbox(label='speaker name', visible=False)
+                    utter_score = gr.Number(label='score', visible=False)
+
                 utter_text = gr.Textbox(label=f'utterance_{i}', visible=False, show_label=False)
                 utter_audio = gr.Audio(label=f'audio_{i}', visible=False, show_label=False)
-                utter_score = gr.Number(label='score', visible=False)
+
                 try_again = gr.Button(value='try again', visible=False)
                 try_again.click(fn=reread,
                                 inputs=[title, utter_text, utter_idx, utter_speaker, email],
-                                outputs=[utter_audio, utter_speaker])
+                                outputs=[utter_audio, utter_speaker, utter_score])
 
-                outputs.extend([utter_text, utter_idx, utter_speaker, utter_audio, try_again])
+                outputs.extend([utter_text, utter_idx, utter_speaker, utter_score, utter_audio, try_again])
 
         button_load.click(fn=load, inputs=[title, email, utter_from_idx], outputs=outputs)
         button_combine.click(fn=combine, inputs=[title, email], outputs=[combined_audio])

@@ -16,7 +16,7 @@ from datatypes import RawUtterance
 from . import schemas, crud, cfg
 from .database import SessionLocal
 from .models import User, Project, Utterance, Speaker
-from .stt import stt_model
+from .stt import stt_model, compute_and_store_score
 
 tts_model = TextToSpeech()
 
@@ -58,7 +58,7 @@ def get_projects(user_email):
     return [spkr.title for spkr in user.projects]
 
 
-def read(title, raw_text, user_email):
+def read(title, raw_text, user_email, compute_scores=True):
     if len(title) == 0:
         raise Exception(f"Project title {title} can't be empty.")
 
@@ -107,7 +107,15 @@ def read(title, raw_text, user_email):
         sf.write(utterance.get_audio_path(), gen, cfg.tts.sample_rate)
         crud.update_any_db_row(db, utterance, date_completed=datetime.now())
 
-    crud.update_any_db_row(db, project, date_completed=datetime.now())
+    project = crud.update_any_db_row(db, project, date_completed=datetime.now())
+
+    if compute_scores:
+        for utter in project.utterances:
+            # score already computed in editor.
+            if len(utter.utterance_stt) > 0:
+                continue
+            score = compute_and_store_score(db, utter)
+
     db.close()
 
 
@@ -157,6 +165,15 @@ def load(project_name: str, user_email: str, from_idx: int):
         res.append(gr.Number.update(value=utterance.utterance_idx))
         res.append(gr.Textbox.update(value=utterance.speaker.name, visible=True))
 
+        key_func = lambda x: x.date
+        stt_utterances = sorted(utterance.utterance_stt, key=key_func)
+        if len(stt_utterances) > 0:
+            score = stt_utterances[-1].levenstein_similarity
+        else:
+            score = compute_and_store_score(db, utterance)
+
+        res.append(gr.Number.update(value=score, visible=True))
+
         gen, sample_rate = sf.read(utterance.get_audio_path())
         res.append(gr.Audio.update(value=(sample_rate, gen), visible=True))
         res.append(gr.Button.update(visible=True))
@@ -168,6 +185,7 @@ def load(project_name: str, user_email: str, from_idx: int):
             res.append(gr.Textbox.update(visible=False))
             res.append(gr.Number.update(visible=False))
             res.append(gr.Textbox.update(visible=False))
+            res.append(gr.Number.update(visible=False))
             res.append(gr.Audio.update(visible=False))
             res.append(gr.Button.update(visible=False))
     return res
@@ -186,8 +204,8 @@ def reread(title, text, utterance_idx, speaker_name, user_email):
     if not new_speaker:
         raise Exception(f"Speaker {speaker_name} doesn't exists. Add it first")
 
-    utterance_db: Utterance = crud.get_utterance(db, utterance_idx, project.id)
-    if not utterance_db:
+    utterance: Utterance = crud.get_utterance(db, utterance_idx, project.id)
+    if not utterance:
         raise Exception(f"Something went wrong, Utterance {utterance_idx} doesn't exists."
                         f"Normally this shouldn't happen")
     start_time = datetime.now()
@@ -198,16 +216,17 @@ def reread(title, text, utterance_idx, speaker_name, user_email):
                                     num_autoregressive_samples=cfg.tts.num_autoregressive_samples)
     gen = gen.cpu().numpy().squeeze()
 
-    sf.write(utterance_db.get_audio_path(), gen, cfg.tts.sample_rate)
+    sf.write(utterance.get_audio_path(), gen, cfg.tts.sample_rate)
     update_dict = {
         'text': text,
         'speaker_id': new_speaker.id,
         'date_created': start_time,
         'date_completed': datetime.now()
     }
-    crud.update_any_db_row(db, utterance_db, **update_dict)
+    utterance = crud.update_any_db_row(db, utterance, **update_dict)
+    score = compute_and_store_score(db, utterance)
     db.close()
-    return (cfg.tts.sample_rate, gen), new_speaker.name
+    return (cfg.tts.sample_rate, gen), speaker_name, score
 
 
 def combine(title, user_email, load_duration_sec=120):

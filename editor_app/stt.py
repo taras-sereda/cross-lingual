@@ -6,6 +6,9 @@ from torchaudio.transforms import Resample
 from . import cfg
 from .models import Utterance
 import soundfile as sf
+from utils import compute_string_similarity
+from datetime import datetime
+from . import schemas, crud
 
 stt_model = whisper.load_model(cfg.stt.model_size)
 
@@ -26,3 +29,15 @@ def transcribe_utterance(utterance: Utterance, language=None):
     text = seg_res['text']
     lang = seg_res['language']
     return text, lang
+
+
+def compute_and_store_score(db, utterance):
+    stt_text, lang = transcribe_utterance(utterance)
+    levenstein_score = compute_string_similarity(utterance.text, stt_text)
+    score = round(levenstein_score, 3)
+    utter_stt = schemas.UtteranceSTTCreate(orig_utterance_id=utterance.id,
+                                           text=stt_text,
+                                           levenstein_similarity=score,
+                                           date=datetime.now())
+    crud.create_utterance_stt(db, utter_stt)
+    return score
