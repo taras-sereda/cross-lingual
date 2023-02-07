@@ -31,7 +31,7 @@ def transcribe_utterance(utterance: Utterance, language=None):
     return text, lang
 
 
-def compute_and_store_score(db, utterance):
+def compute_and_store_score(db, utterance) -> float:
     stt_text, lang = transcribe_utterance(utterance)
     levenstein_score = compute_string_similarity(utterance.text, stt_text)
     score = round(levenstein_score, 3)
@@ -41,3 +41,20 @@ def compute_and_store_score(db, utterance):
                                            date=datetime.now())
     crud.create_utterance_stt(db, utter_stt)
     return score
+
+
+def get_or_compute_score(db, utterance) -> float:
+    key_func = lambda x: x.date
+    stt_utterances = sorted(utterance.utterance_stt, key=key_func)
+    if len(stt_utterances) > 0:
+        score = stt_utterances[-1].levenstein_similarity
+    else:
+        score = compute_and_store_score(db, utterance)
+    return score
+
+
+def calculate_project_score(db, project) -> float:
+    scores = []
+    for utterance in project.utterances:
+        scores.append(get_or_compute_score(db, utterance))
+    return sum(scores) / len(scores)

@@ -16,7 +16,7 @@ from datatypes import RawUtterance
 from . import schemas, crud, cfg
 from .database import SessionLocal
 from .models import User, Project, Utterance, Speaker
-from .stt import stt_model, compute_and_store_score
+from .stt import stt_model, compute_and_store_score, get_or_compute_score, calculate_project_score
 
 tts_model = TextToSpeech()
 
@@ -159,19 +159,14 @@ def load(project_name: str, user_email: str, from_idx: int):
         raise Exception(f"no such project {project_name}. Provide valid project title")
 
     utterances = project.utterances[from_idx: from_idx + cfg.editor.max_utterance]
-    res = [project.text, len(project.utterances)]
+    avg_project_score = calculate_project_score(db, project)
+    res = [project.text, len(project.utterances), avg_project_score]
     for utterance in utterances:
         res.append(gr.Textbox.update(value=utterance.text, visible=True))
         res.append(gr.Number.update(value=utterance.utterance_idx))
         res.append(gr.Textbox.update(value=utterance.speaker.name, visible=True))
 
-        key_func = lambda x: x.date
-        stt_utterances = sorted(utterance.utterance_stt, key=key_func)
-        if len(stt_utterances) > 0:
-            score = stt_utterances[-1].levenstein_similarity
-        else:
-            score = compute_and_store_score(db, utterance)
-
+        score = get_or_compute_score(db, utterance)
         res.append(gr.Number.update(value=score, visible=True))
 
         gen, sample_rate = sf.read(utterance.get_audio_path())

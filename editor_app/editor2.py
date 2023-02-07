@@ -67,13 +67,15 @@ with gr.Blocks() as editor:
             title = gr.Text(label='Title', placeholder="enter project title")
             utter_from_idx = gr.Number(label='utterance start index', value=0, precision=0)
             button_load = gr.Button(value='Load', variant='primary')
-            num_utterance = gr.Number(label='Total number of utterances', precision=0)
+            with gr.Row():
+                num_utterance = gr.Number(label='Total number of utterances', precision=0)
+                avg_prj_score = gr.Number(label='Average project score', precision=3)
             text = gr.Text(label='Text')
 
             button_combine = gr.Button(value='Combine')
             combined_audio = gr.Audio(visible=False)
 
-        outputs = [text, num_utterance]
+        outputs = [text, num_utterance, avg_prj_score]
         with gr.Column(scale=1, variant='compact') as editor_col1:
             for i in range(cfg.editor.max_utterance):
 
