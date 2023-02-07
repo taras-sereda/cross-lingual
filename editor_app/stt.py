@@ -14,7 +14,6 @@ stt_model = whisper.load_model(cfg.stt.model_size)
 
 
 def transcribe_utterance(utterance: Utterance, language=None):
-
     # waveform, sample_rate = sf.read(utterance.get_audio_path())
     # if waveform.ndim == 1:
     #     waveform = waveform[np.newaxis, :]
@@ -53,8 +52,8 @@ def get_or_compute_score(db, utterance) -> float:
     return score
 
 
-def calculate_project_score(db, project) -> float:
+def calculate_project_score(db, project) -> (float, list):
     scores = []
     for utterance in project.utterances:
         scores.append(get_or_compute_score(db, utterance))
-    return sum(scores) / len(scores)
+    return sum(scores) / len(scores), scores

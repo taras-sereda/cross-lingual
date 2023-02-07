@@ -1,3 +1,4 @@
+import bisect
 import json
 from collections import defaultdict
 from datetime import datetime
@@ -148,7 +149,7 @@ def playground_read(text, speaker_name, user_email):
     return outputs
 
 
-def load(project_name: str, user_email: str, from_idx: int):
+def load(project_name: str, user_email: str, from_idx: int, score_threshold=None):
     db = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
     if not user:
@@ -157,10 +158,18 @@ def load(project_name: str, user_email: str, from_idx: int):
     project: Project = crud.get_project_by_title(db, project_name, user.id)
     if not project:
         raise Exception(f"no such project {project_name}. Provide valid project title")
+    all_utterances = project.utterances
 
-    utterances = project.utterances[from_idx: from_idx + cfg.editor.max_utterance]
-    avg_project_score = calculate_project_score(db, project)
-    res = [project.text, len(project.utterances), avg_project_score]
+    avg_project_score, all_scores = calculate_project_score(db, project)
+    res = [project.text, len(all_utterances), avg_project_score]
+
+    if score_threshold > 0.0:
+        temp = [(sc, ut) for sc, ut in sorted(zip(all_scores, all_utterances), key=lambda x: x[0])]
+        sorted_from_idx = bisect.bisect_right(temp, x=score_threshold, key=lambda x: x[0])
+        all_utterances = [ut for (sc, ut) in temp[sorted_from_idx:]]
+
+    utterances = all_utterances[from_idx: from_idx + cfg.editor.max_utterance]
+
     for utterance in utterances:
         res.append(gr.Textbox.update(value=utterance.text, visible=True))
         res.append(gr.Number.update(value=utterance.utterance_idx))

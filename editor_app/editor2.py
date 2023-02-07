@@ -66,6 +66,7 @@ with gr.Blocks() as editor:
 
             title = gr.Text(label='Title', placeholder="enter project title")
             utter_from_idx = gr.Number(label='utterance start index', value=0, precision=0)
+            score_slider = gr.Slider(0, 1.0, label='min utterance score')
             button_load = gr.Button(value='Load', variant='primary')
             with gr.Row():
                 num_utterance = gr.Number(label='Total number of utterances', precision=0)
@@ -94,7 +95,7 @@ with gr.Blocks() as editor:
 
                 outputs.extend([utter_text, utter_idx, utter_speaker, utter_score, utter_audio, try_again])
 
-        button_load.click(fn=load, inputs=[title, email, utter_from_idx], outputs=outputs)
+        button_load.click(fn=load, inputs=[title, email, utter_from_idx, score_slider], outputs=outputs)
         button_combine.click(fn=combine, inputs=[title, email], outputs=[combined_audio])
 
 
