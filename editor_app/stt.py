@@ -32,8 +32,7 @@ def transcribe_utterance(utterance: Utterance, language=None):
 
 def compute_and_store_score(db, utterance) -> float:
     stt_text, lang = transcribe_utterance(utterance)
-    levenstein_score = compute_string_similarity(utterance.text, stt_text)
-    score = round(levenstein_score, 3)
+    score = compute_string_similarity(utterance.text, stt_text)
     utter_stt = schemas.UtteranceSTTCreate(orig_utterance_id=utterance.id,
                                            text=stt_text,
                                            levenstein_similarity=score,

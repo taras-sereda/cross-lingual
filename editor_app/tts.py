@@ -6,13 +6,16 @@ from datetime import datetime
 import gradio as gr
 import soundfile as sf
 import numpy as np
+import torch
 from sqlalchemy.orm import Session
 
 from tortoise.api import TextToSpeech
 from tortoise.utils.audio import load_voices, load_audio
 from tortoise.utils.text import split_and_recombine_text
+from tortoise.utils.wav2vec_alignment import Wav2VecAlignment
 
-from utils import compute_string_similarity, split_on_raw_utterances, raw_speaker_re, time_re
+from utils import compute_string_similarity, split_on_raw_utterances, raw_speaker_re, time_re, normalize_text, \
+    find_single_repetition
 from datatypes import RawUtterance
 from . import schemas, crud, cfg
 from .database import SessionLocal
@@ -20,6 +23,7 @@ from .models import User, Project, Utterance, Speaker
 from .stt import stt_model, compute_and_store_score, get_or_compute_score, calculate_project_score
 
 tts_model = TextToSpeech()
+aligner = Wav2VecAlignment()
 
 
 def add_speaker(audio_tuple, speaker_name, user_email):
@@ -59,7 +63,7 @@ def get_projects(user_email):
     return [spkr.title for spkr in user.projects]
 
 
-def read(title, raw_text, user_email, compute_scores=True):
+def read(title, raw_text, user_email, check_for_repetitions=True):
     if len(title) == 0:
         raise Exception(f"Project title {title} can't be empty.")
 
@@ -110,12 +114,39 @@ def read(title, raw_text, user_email, compute_scores=True):
 
     project = crud.update_any_db_row(db, project, date_completed=datetime.now())
 
-    if compute_scores:
+    for utter in project.utterances:
+        # score already computed in editor.
+        if len(utter.utterance_stt) > 0:
+            continue
+        score = compute_and_store_score(db, utter)
+
+    if check_for_repetitions:
+        key_func = lambda x: x.date
         for utter in project.utterances:
-            # score already computed in editor.
-            if len(utter.utterance_stt) > 0:
+            stt_utterance = sorted(utter.utterance_stt, key=key_func)[-1]
+            if stt_utterance.levenstein_similarity == 1.0:
                 continue
-            score = compute_and_store_score(db, utter)
+            text_norm = normalize_text(utter.text)
+            text_stt_norm = normalize_text(stt_utterance.text)
+            res = find_single_repetition(text_stt_norm, text_norm)
+            if not res:
+                continue
+            audio_path = utter.get_audio_path()
+            wav, sample_rate = sf.read(audio_path, dtype='float32')
+            wav = torch.from_numpy(wav).unsqueeze(0)
+            new_res_wav = aligner.redact(wav, res)
+            new_res_wav = new_res_wav.cpu().numpy().squeeze()
+            new_text_stt = stt_model.transcribe(new_res_wav)['text']
+            new_similarity_score = compute_string_similarity(utter.text, new_text_stt)
+            if new_similarity_score > stt_utterance.levenstein_similarity:
+                print(f'Yay! looks like repetition caught and corrected, for text {utter.text}'
+                      f'new score {new_similarity_score} > {stt_utterance.levenstein_similarity}')
+                utter_stt = schemas.UtteranceSTTCreate(orig_utterance_id=utter.id,
+                                                       text=new_text_stt,
+                                                       levenstein_similarity=new_similarity_score,
+                                                       date=datetime.now())
+                crud.create_utterance_stt(db, utter_stt)
+                sf.write(utter.get_audio_path(), new_res_wav, sample_rate)
 
     db.close()
 

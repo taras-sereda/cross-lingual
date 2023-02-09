@@ -1,5 +1,8 @@
 import re
+from collections import Counter
+from typing import Optional
 
+import numpy as np
 import Levenshtein
 
 from datatypes import RawUtterance
@@ -66,14 +69,11 @@ def compute_string_similarity(str1: str, str2: str, normalize=True) -> float:
     String similarity ignoring punctuation.
     """
     if normalize:
-        str1 = re.sub(punctuation_re, '', str1)
-        str1 = str1.strip().lower()
+        str1 = normalize_text(str1)
+        str2 = normalize_text(str2)
 
-        str2 = re.sub(punctuation_re, '', str2)
-        str2 = str2.strip().lower()
     dist = Levenshtein.distance(str1, str2)
-
-    return 1 - dist / max(len(str1), len(str2))
+    return round(1 - dist / max(len(str1), len(str2)), 3)
 
 
 def acronym_preprocessing(text):
@@ -81,3 +81,64 @@ def acronym_preprocessing(text):
     # return re.sub('AI', 'Artificial intelligence', text)
     # re sub accepts functions as a repl arguments, are cool!
     return re.sub(acronym_re, lambda m: '.'.join(m.group()), text)
+
+
+def normalize_text(text: str) -> str:
+    text = re.sub(punctuation_re, '', text)
+    text = text.strip().lower()
+    return text
+
+
+def find_single_repetition(stt_str: str, tts_str: str) -> Optional[str]:
+    """
+    This algorithm  looks for substring repetitions withing a string.
+    It's designed to handle a single fact of repetition of an arbitrary pattern in stt_string.
+    Repetition patter will be enclosed in square brackets.
+    Example:
+    they are trying to blackmail us with that danger that danger is there that danger is there that cannot be ignored
+    they are trying to blackmail us with that danger [ that danger is there ] that danger is there that cannot be ignored
+
+    """
+
+    stt_tokens = stt_str.split()
+    tts_tokens = tts_str.split()
+
+    freq_stt = Counter(stt_tokens)
+    freq_tts = Counter(tts_tokens)
+
+    repeated_words = Counter()
+    for word, stt_word_cnt in freq_stt.items():
+        if (tts_word_cnt := freq_tts.get(word)) is not None:
+            num_repetitions = stt_word_cnt - tts_word_cnt
+            if num_repetitions > 0:
+                repeated_words[word] = num_repetitions
+
+    if repeated_words.total() == 0:
+        return
+
+    mask = np.zeros(len(stt_tokens), dtype=np.int8)
+    for elem in repeated_words.elements():
+        for i in range(len(stt_tokens)):
+            if elem == stt_tokens[i]:
+                mask[i] = 1
+
+    non_zero_idxs = np.concatenate(([0], (mask != 0).view(np.int8), [0]))
+    # find all runs
+    runs = np.where(np.abs(np.diff(non_zero_idxs)) == 1)[0].reshape(-1, 2)
+    # find longest run
+    longest_run = sorted(runs, key=lambda itm: itm[1] - itm[0])[-1]
+    # try to place braces:
+    start, end = longest_run
+    assert end - start >= repeated_words.total() * 2
+
+    kernel_size = repeated_words.total()
+    found = False
+    for i in range(start, end - kernel_size):
+        if Counter(stt_tokens[i: i + kernel_size]) == repeated_words:
+            found = True
+            break
+    if found:
+        res = ' '.join(stt_tokens[:i] + ['['] + stt_tokens[i: i + kernel_size] + [']'] + stt_tokens[i + kernel_size:])
+        return res
+
+    return
