@@ -101,5 +101,3 @@ with gr.Blocks() as editor:
 
 if __name__ == '__main__':
     submitter.launch(debug=True)
-
-# TODO integrate whisper for judging of synthesis quality.

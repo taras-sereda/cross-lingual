@@ -1,7 +1,6 @@
 from typing import Tuple
 
 import gradio as gr
-import torch
 import numpy as np
 import soundfile as sf
 
@@ -10,14 +9,31 @@ from pyannote.audio import Pipeline
 
 from . import cfg, data_root, example_voice_sample_path
 from .stt import stt_model
+from utils import gradio_read_audio_data, not_raw_speaker_re
 
 diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_auth_token=cfg.diarization.auth_token)
 
-temp_dir_path = data_root.joinpath('temp')
-temp_dir_path.mkdir(exist_ok=True)
+
+def detect_speakers(audio_data: Tuple[int, np.ndarray]):
+    waveform, sample_rate = gradio_read_audio_data(audio_data)
+    diarization = diarization_model({'waveform': waveform, 'sample_rate': sample_rate})
+
+    speakers = set(diarization.labels())
+    speaker_samples = dict()
+
+    for seg, lbl, spkr in diarization.itertracks(yield_label=True):
+        if spkr not in speaker_samples:
+            speaker_samples[spkr] = seg
+        if len(speakers) == len(speaker_samples):
+            break
+    res = ''
+    for spkr in sorted(speakers):
+        row = f'{spkr}: {speaker_samples[spkr]}\n'
+        res += row
+    return res
 
 
-def transcribe(audio_data: Tuple[int, np.ndarray], language):
+def transcribe(audio_data: Tuple[int, np.ndarray], language: str, named_speakers: str):
     """Transcribe input media with speaker diarization, resulting transcript will be in form:
     [ HH:MM:SS.sss --> HH:MM:SS.sss ]
     {SPEAKER}
@@ -26,14 +42,16 @@ def transcribe(audio_data: Tuple[int, np.ndarray], language):
     if len(language) == 0:
         language = None
 
-    sample_rate, waveform = audio_data
-    if waveform.ndim == 1:
-        waveform = waveform[np.newaxis, :]
-    if waveform.ndim == 2 and np.argmin(waveform.shape) == 1:
-        waveform = waveform.transpose()
-    waveform = torch.from_numpy(waveform).to(torch.float32)
-
+    waveform, sample_rate = gradio_read_audio_data(audio_data)
     diarizations = diarization_model({'waveform': waveform, 'sample_rate': sample_rate})
+
+    speakers = []
+    for speaker in named_speakers.lower().split(','):
+        spkr = not_raw_speaker_re.sub('', speaker)
+        speakers.append(spkr)
+
+    assert len(diarizations.labels()) == len(speakers)
+    diarizations = diarizations.rename_labels(generator=iter(speakers), copy=False)
 
     stt_waveform = Resample(orig_freq=sample_rate, new_freq=cfg.stt.sample_rate)(waveform)
     stt_waveform = stt_waveform.squeeze(0)
@@ -69,16 +87,21 @@ with gr.Blocks() as transcriber:
         with gr.Column(scale=1) as col0:
             project_name = gr.Text(label='Project name', placeholder="enter your project name")
             audio = gr.Audio(label='Audio for transcription')
+            detect_spkr_button = gr.Button(value='Detect speakers')
+            detected_speakers = gr.Text(label='Ordinal speakers')
+            named_speakers = gr.Text(label='Named speakers')
             input_lang = gr.Text(label='input language')
 
         with gr.Column(scale=1) as col1:
             text = gr.Text(label='Text transcription', interactive=True)
             detected_lang = gr.Text(label='Detected language')
             num_chars = gr.Number(label='Number of characters')
-            button = gr.Button(value='Go!')
-        button.click(transcribe, inputs=[audio, input_lang], outputs=[text, detected_lang, num_chars])
+            transcribe_button = gr.Button(value='Transcribe!')
+
+        detect_spkr_button.click(detect_speakers, inputs=[audio], outputs=[detected_speakers])
+        transcribe_button.click(transcribe,
+                                inputs=[audio, input_lang, named_speakers],
+                                outputs=[text, detected_lang, num_chars])
 
     gr.Markdown("Audio examples")
     gr.Examples([example_voice_sample_path], [audio])
-
-# TODO. Add speakers mapping

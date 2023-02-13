@@ -3,6 +3,7 @@ from collections import Counter
 from typing import Optional
 
 import numpy as np
+import torch
 import Levenshtein
 
 from datatypes import RawUtterance
@@ -10,6 +11,7 @@ from datatypes import RawUtterance
 timecode_re = re.compile(r"\[[\d\s:\.\->]+\]")
 time_re = re.compile(r"[\d:\.]+")
 raw_speaker_re = re.compile(r"\w+")
+not_raw_speaker_re = re.compile(r"[^a-z0-9_]")
 speaker_re = re.compile(r"{\w+}")
 double_new_line = re.compile(r"\n\s*\n")
 punctuation_re = re.compile(r"[^\w\s]")
@@ -142,3 +144,12 @@ def find_single_repetition(stt_str: str, tts_str: str) -> Optional[str]:
         return res
 
     return
+
+
+def gradio_read_audio_data(audio_data: tuple[int, np.ndarray]) -> tuple[torch.Tensor, int]:
+    sample_rate, waveform = audio_data
+    if waveform.ndim == 1:
+        waveform = waveform[np.newaxis, :]
+    if waveform.ndim == 2 and np.argmin(waveform.shape) == 1:
+        waveform = waveform.transpose()
+    return torch.from_numpy(waveform).to(torch.float32), sample_rate
