@@ -147,7 +147,12 @@ def find_single_repetition(stt_str: str, tts_str: str) -> Optional[str]:
 
 
 def gradio_read_audio_data(audio_data: tuple[int, np.ndarray]) -> tuple[torch.Tensor, int]:
-    sample_rate, waveform = audio_data
+    from pathlib import Path
+    if isinstance(audio_data, Path):
+        import soundfile as sf
+        waveform, sample_rate = sf.read(audio_data)
+    else:
+        sample_rate, waveform = audio_data
     if waveform.ndim == 1:
         waveform = waveform[np.newaxis, :]
     if waveform.ndim == 2 and np.argmin(waveform.shape) == 1:

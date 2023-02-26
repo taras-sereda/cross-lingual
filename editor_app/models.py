@@ -14,6 +14,8 @@ class User(Base):
     name = Column(String, nullable=False)
     projects = relationship("Project", back_populates="owner", lazy='joined')
     speakers = relationship("Speaker", back_populates="owner", lazy='joined')
+    crosslingual_projects = relationship("CrossProject", back_populates="owner", lazy='joined')
+    transcripts = relationship("Transcript", back_populates="owner")
 
     def get_user_data_root(self) -> pathlib.Path:
         dir_name = f'{self.id:03}_{self.name.lower()}'
@@ -22,6 +24,42 @@ class User(Base):
             dir_path.mkdir(parents=True, exist_ok=True)
 
         return dir_path
+
+
+class CrossProject(Base):
+    __tablename__ = 'crosslingual_project'
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String, nullable=False)
+    media_name = Column(String, nullable=False)
+    owner_id = Column(Integer, ForeignKey("user.id"))
+    owner = relationship("User", back_populates="crosslingual_projects")
+    transcript = relationship("Transcript", back_populates="cross_project")
+
+    def get_data_root(self) -> pathlib.Path:
+        project_path: pathlib.Path = self.owner.get_user_data_root().joinpath('cross_projects', self.title.strip())
+        if not project_path.exists():
+            project_path.mkdir(parents=True, exist_ok=True)
+        return project_path
+
+    def get_media_path(self) -> pathlib.Path:
+        return self.get_data_root().joinpath(self.media_name)
+
+
+class Transcript(Base):
+    __tablename__ = 'transcript'
+
+    id = Column(Integer, primary_key=True)
+    text = Column(Text, nullable=False)
+    lang = Column(String, nullable=False)
+    owner_id = Column(Integer, ForeignKey("user.id"))
+    cross_project_id = Column(Integer, ForeignKey("crosslingual_project.id"))
+    owner = relationship("User", back_populates="transcripts")
+    cross_project = relationship("CrossProject", back_populates="transcript")
+
+    def get_path(self):
+        self.cross_project.get_data_root().joinpath('transcript.txt')
+
 
 
 class Project(Base):

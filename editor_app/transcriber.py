@@ -1,21 +1,39 @@
+import subprocess
 from typing import Tuple
 
 import gradio as gr
 import numpy as np
 import soundfile as sf
+from pathlib import Path
+import shutil
 
+from sqlalchemy.orm import Session
 from torchaudio.transforms import Resample
 from pyannote.audio import Pipeline
 
-from . import cfg, data_root, example_voice_sample_path
+from . import cfg, data_root, example_voice_sample_path, crud
+from .database import SessionLocal
+from .models import User
 from .stt import stt_model
 from utils import gradio_read_audio_data, not_raw_speaker_re
 
 diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_auth_token=cfg.diarization.auth_token)
 
 
-def detect_speakers(audio_data: Tuple[int, np.ndarray]):
-    waveform, sample_rate = gradio_read_audio_data(audio_data)
+def detect_speakers(input_media, project_name, user_email):
+    db: Session = SessionLocal()
+    user: User = crud.get_user_by_email(db, user_email)
+    if not user:
+        raise Exception(f"User {user_email} not found. Provide valid email")
+    name = input_media.name.split('/')[-1]
+    cross_project = crud.create_cross_project(db, {'title': project_name, 'media_name': name}, user.id)
+    media_path = shutil.copy(input_media.name, cross_project.get_media_path())
+    raw_media_path = Path(media_path).with_suffix(".16kHz.wav")
+    # ffmpeg
+    command = f"/usr/bin/ffmpeg -i {media_path} -ac 1 -ar 16000 {raw_media_path}"
+    subprocess.run(command, shell=True)
+    waveform, sample_rate = gradio_read_audio_data(raw_media_path)
+
     diarization = diarization_model({'waveform': waveform, 'sample_rate': sample_rate})
 
     speakers = set(diarization.labels())
@@ -85,8 +103,9 @@ def transcribe(audio_data: Tuple[int, np.ndarray], language: str, named_speakers
 with gr.Blocks() as transcriber:
     with gr.Row() as row0:
         with gr.Column(scale=1) as col0:
+            email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
             project_name = gr.Text(label='Project name', placeholder="enter your project name")
-            audio = gr.Audio(label='Audio for transcription')
+            file = gr.File(label='input media')
             detect_spkr_button = gr.Button(value='Detect speakers')
             detected_speakers = gr.Text(label='Ordinal speakers')
             named_speakers = gr.Text(label='Named speakers')
@@ -98,10 +117,7 @@ with gr.Blocks() as transcriber:
             num_chars = gr.Number(label='Number of characters')
             transcribe_button = gr.Button(value='Transcribe!')
 
-        detect_spkr_button.click(detect_speakers, inputs=[audio], outputs=[detected_speakers])
+        detect_spkr_button.click(detect_speakers, inputs=[file, project_name, email], outputs=[detected_speakers])
         transcribe_button.click(transcribe,
-                                inputs=[audio, input_lang, named_speakers],
+                                inputs=[file, input_lang, named_speakers],
                                 outputs=[text, detected_lang, num_chars])
-
-    gr.Markdown("Audio examples")
-    gr.Examples([example_voice_sample_path], [audio])

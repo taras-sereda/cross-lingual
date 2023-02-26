@@ -44,6 +44,14 @@ def create_project(db: Session, project: schemas.ProjectCreate, user_id: int):
     return db_project
 
 
+def create_cross_project(db: Session, cross_project, user_id: int):
+    db_project = models.CrossProject(**cross_project, owner_id=user_id)
+    db.add(db_project)
+    db.commit()
+    db.refresh(db_project)
+    return db_project
+
+
 def get_project_by_title(db: Session, title: str, user_id: int):
     return db.query(models.Project).filter(and_(models.Project.title == title, models.Project.owner_id == user_id)).first()
 
