@@ -39,6 +39,25 @@ class Project(ProjectBase):
         orm_mode = True
 
 
+class TranslationBase(BaseModel):
+    text: str
+    lang: str
+    date_created: datetime
+
+
+class TranslationCreate(TranslationBase):
+    pass
+
+
+class Translation(TranslationBase):
+    id: int
+    owner_id: int
+    cross_project_id: int
+
+    class Config:
+        orm_mode = True
+
+
 class TranscriptBase(BaseModel):
     text: str
     lang: str

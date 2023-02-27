@@ -35,6 +35,7 @@ class CrossProject(Base):
     owner_id = Column(Integer, ForeignKey("user.id"))
     owner = relationship("User", back_populates="crosslingual_projects")
     transcript = relationship("Transcript", back_populates="cross_project")
+    translations = relationship("Translation", back_populates="cross_project")
 
     def get_data_root(self) -> pathlib.Path:
         project_path: pathlib.Path = self.owner.get_user_data_root().joinpath('cross_projects', self.title.strip())
@@ -63,6 +64,22 @@ class Transcript(Base):
     def get_path(self):
         return self.cross_project.get_data_root().joinpath('transcript.txt')
 
+
+class Translation(Base):
+    __tablename__ = 'translation'
+    id = Column(Integer, primary_key=True)
+    text = Column(Text, nullable=False)
+    lang = Column(String, nullable=False)
+    date_created = Column(DateTime, nullable=False)
+    date_completed = Column(DateTime)
+    owner_id = Column(Integer, ForeignKey("user.id"))
+    cross_project_id = Column(Integer, ForeignKey("crosslingual_project.id"))
+    # owner = relationship("User", back_populates="projects")
+    cross_project = relationship("CrossProject", back_populates="translations")
+    # utterances = relationship("Utterance", back_populates="project", cascade="all,delete-orphan")
+
+    def get_path(self):
+        return self.cross_project.get_data_root().joinpath(f'translation.{self.lang}.txt')
 
 
 class Project(Base):

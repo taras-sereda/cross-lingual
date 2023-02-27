@@ -1,9 +1,13 @@
-import gradio as gr
+from datetime import datetime
 
 import deepl
+import gradio as gr
+from sqlalchemy.orm import Session
 
+from editor_app import cfg, crud, schemas
+from editor_app.database import SessionLocal
+from editor_app.models import User, CrossProject
 from utils import split_on_raw_utterances
-from . import cfg
 
 deepl_translator = deepl.Translator(cfg.translation.auth_token)
 
@@ -33,9 +37,47 @@ def translate(text: str, tgt_lang: str):
     return result, num_src_char, num_tgt_char
 
 
+def get_num_char(text: str):
+    segments = split_on_raw_utterances(text)
+    num_char = 0
+    for seg in segments:
+        num_char += len(seg.text)
+    return num_char
+
+
+def gradio_translate(project_name, tgt_lang, user_email):
+    db: Session = SessionLocal()
+    user: User = crud.get_user_by_email(db, user_email)
+    if user is None:
+        raise Exception(f"User {user_email} not found. Provide valid email")
+
+    cross_project: CrossProject = crud.get_cross_project_by_title(db, project_name, user.id)
+    if cross_project is None:
+        raise Exception(f"CrossProject {project_name} doesn't exists")
+
+    # TODO. ensure one-to-one relationship.
+    assert len(cross_project.transcript) == 1
+    transcript = cross_project.transcript[0]
+
+    translation_db = crud.get_translation_by_title_and_lang(db, project_name, tgt_lang, user.id)
+    if translation_db is None:
+        translation, num_src_char, num_tgt_char = translate(transcript.text, tgt_lang)
+        translation_data = schemas.TranslationCreate(text=translation, lang=tgt_lang, date_created=datetime.now())
+        translation_db = crud.create_translation(db, translation_data, user.id, cross_project.id)
+        with open(translation_db.get_path(), 'w') as f:
+            f.write(translation)
+    else:
+        num_src_char = get_num_char(transcript.text)
+        num_tgt_char = get_num_char(translation_db.text)
+        print('translation loaded from db')
+
+    return transcript.text, translation_db.text, num_src_char, num_tgt_char
+
+
 with gr.Blocks() as translator:
     with gr.Row() as row0:
         with gr.Column(scale=1) as col0:
+            email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
             project_name = gr.Text(label='Project name', placeholder="enter your project name")
             src_text = gr.Text(label='Text transcription', interactive=True)
             tgt_lang = gr.Text(label='Target Language', value='EN-US')
@@ -44,4 +86,9 @@ with gr.Blocks() as translator:
             num_src_chars = gr.Number(label='[Source language] Number of characters')
             num_tgt_chars = gr.Number(label='[Target language] Number of characters')
             button = gr.Button(value='Go!')
+            button2 = gr.Button(value='Load and go!')
         button.click(translate, inputs=[src_text, tgt_lang], outputs=[tgt_text, num_src_chars, num_tgt_chars])
+        button2.click(gradio_translate, inputs=[project_name, tgt_lang, email], outputs=[src_text, tgt_text, num_src_chars, num_tgt_chars])
+
+if __name__ == '__main__':
+    translator.launch(debug=True)

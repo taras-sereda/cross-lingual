@@ -72,6 +72,22 @@ def get_transcript_by_title(db: Session, title: str, user_id: int):
     return db.query(models.CrossProject).filter(and_(models.CrossProject.title == title, models.CrossProject.owner_id == user_id)).first()
 
 
+def create_translation(db: Session, translation: schemas.TranslationCreate, user_id: int, cross_project_id: int):
+    db_translation = models.Translation(**translation.dict(), owner_id=user_id, cross_project_id=cross_project_id)
+    db.add(db_translation)
+    db.commit()
+    db.refresh(db_translation)
+    return db_translation
+
+
+def get_translation_by_title_and_lang(db: Session, title: str, lang: str, user_id: int):
+    transcript_db = get_transcript_by_title(db, title, user_id)
+    return db.query(models.Translation).filter(and_(models.Translation.cross_project_id == transcript_db.id,
+                                                    models.Translation.owner_id == user_id,
+                                                    models.Translation.lang == lang,
+                                                    )).first()
+
+
 def create_utterance(db: Session, utterance: schemas.UtteranceCreate, project_id: int, speaker_id: int):
     db_utterance = models.Utterance(**utterance.dict(), project_id=project_id, speaker_id=speaker_id)
     db.add(db_utterance)

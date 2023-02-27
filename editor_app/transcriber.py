@@ -15,6 +15,7 @@ from utils import gradio_read_audio_data, not_raw_speaker_re
 
 diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_auth_token=cfg.diarization.auth_token)
 
+DEMO_DURATION = 120  # duration of demo in seconds
 
 def detect_speakers(input_media, project_name, user_email):
     db: Session = SessionLocal()
@@ -68,7 +69,7 @@ def detect_speakers(input_media, project_name, user_email):
     return res
 
 
-def transcribe(project_name, language: str, named_speakers: str, user_email: str):
+def transcribe(project_name, language: str, named_speakers: str, user_email: str, demo_run: bool = True):
     """Transcribe input media with speaker diarization, resulting transcript will be in form:
     [ HH:MM:SS.sss --> HH:MM:SS.sss ]
     {SPEAKER}
@@ -104,6 +105,10 @@ def transcribe(project_name, language: str, named_speakers: str, user_email: str
     ffmpeg_str = ''
 
     for idx, (seg, _, speaker) in enumerate(diarization.itertracks(yield_label=True)):
+
+        if demo_run and seg.start > DEMO_DURATION:
+            break
+
         seg_wav = waveform[int(seg.start * cfg.stt.sample_rate): int(seg.end * cfg.stt.sample_rate)]
         seg_res = stt_model.transcribe(seg_wav, language=language)
         text = seg_res['text']
@@ -163,6 +168,7 @@ with gr.Blocks() as transcriber:
             detected_lang = gr.Text(label='Detected language')
             num_chars = gr.Number(label='Number of characters')
             transcribe_button = gr.Button(value='Transcribe!')
+            demo_checkbox = gr.Checkbox(val=True, label='Demo Run')
             save_transcript_button = gr.Button(value='save')
             BASENJI_PIC = 'https://www.akc.org/wp-content/uploads/2017/11/Basenji-On-White-01.jpg'
             success_image = gr.Image(value=BASENJI_PIC, visible=False)
@@ -170,7 +176,7 @@ with gr.Blocks() as transcriber:
         detect_spkr_button.click(detect_speakers, inputs=[file, project_name, email], outputs=[detected_speakers])
         transcribe_button.click(
             transcribe,
-            inputs=[project_name, input_lang, named_speakers, email],
+            inputs=[project_name, input_lang, named_speakers, email, demo_checkbox],
             outputs=[text, detected_lang, num_chars])
         save_transcript_button.click(
             save_transcript,
