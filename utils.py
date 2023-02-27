@@ -1,6 +1,7 @@
 import re
 from collections import Counter
 from typing import Optional
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -146,15 +147,11 @@ def find_single_repetition(stt_str: str, tts_str: str) -> Optional[str]:
     return
 
 
-def gradio_read_audio_data(audio_data: tuple[int, np.ndarray]) -> tuple[torch.Tensor, int]:
-    from pathlib import Path
-    if isinstance(audio_data, Path):
+def gradio_read_audio_data(audio_data: tuple[int, np.ndarray] | str | Path) -> (torch.Tensor, int):
+    dtype = torch.float32
+    if isinstance(audio_data, Path | str):
         import soundfile as sf
-        waveform, sample_rate = sf.read(audio_data)
+        waveform, sample_rate = sf.read(audio_data, dtype=str(dtype).split('.')[-1])
     else:
         sample_rate, waveform = audio_data
-    if waveform.ndim == 1:
-        waveform = waveform[np.newaxis, :]
-    if waveform.ndim == 2 and np.argmin(waveform.shape) == 1:
-        waveform = waveform.transpose()
-    return torch.from_numpy(waveform).to(torch.float32), sample_rate
+    return torch.from_numpy(waveform).to(dtype), sample_rate

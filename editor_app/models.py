@@ -45,6 +45,9 @@ class CrossProject(Base):
     def get_media_path(self) -> pathlib.Path:
         return self.get_data_root().joinpath(self.media_name)
 
+    def get_raw_wav_path(self) -> pathlib.Path:
+        return self.get_media_path().with_suffix(".16kHz.wav")
+
 
 class Transcript(Base):
     __tablename__ = 'transcript'
@@ -58,7 +61,7 @@ class Transcript(Base):
     cross_project = relationship("CrossProject", back_populates="transcript")
 
     def get_path(self):
-        self.cross_project.get_data_root().joinpath('transcript.txt')
+        return self.cross_project.get_data_root().joinpath('transcript.txt')
 
 
 

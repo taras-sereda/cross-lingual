@@ -3,6 +3,23 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class CrossProjectBase(BaseModel):
+    title: str
+    media_name: str
+
+
+class CrossProjectCreate(CrossProjectBase):
+    pass
+
+
+class CrossProject(CrossProjectBase):
+    id: int
+    owner_id: int
+
+    class Config:
+        orm_mode = True
+
+
 class ProjectBase(BaseModel):
     title: str
     text: str
@@ -17,6 +34,24 @@ class Project(ProjectBase):
     id: int
     owner_id: int
     date_completed: datetime | None = None
+
+    class Config:
+        orm_mode = True
+
+
+class TranscriptBase(BaseModel):
+    text: str
+    lang: str
+
+
+class TranscriptCreate(TranscriptBase):
+    pass
+
+
+class Transcript(TranscriptBase):
+    id: int
+    owner_id: int
+    cross_project_id: int
 
     class Config:
         orm_mode = True

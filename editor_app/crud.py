@@ -44,16 +44,32 @@ def create_project(db: Session, project: schemas.ProjectCreate, user_id: int):
     return db_project
 
 
-def create_cross_project(db: Session, cross_project, user_id: int):
-    db_project = models.CrossProject(**cross_project, owner_id=user_id)
+def get_project_by_title(db: Session, title: str, user_id: int):
+    return db.query(models.Project).filter(and_(models.Project.title == title, models.Project.owner_id == user_id)).first()
+
+
+def create_cross_project(db: Session, cross_project: schemas.CrossProjectCreate, user_id: int):
+    db_project = models.CrossProject(**cross_project.dict(), owner_id=user_id)
     db.add(db_project)
     db.commit()
     db.refresh(db_project)
     return db_project
 
 
-def get_project_by_title(db: Session, title: str, user_id: int):
-    return db.query(models.Project).filter(and_(models.Project.title == title, models.Project.owner_id == user_id)).first()
+def get_cross_project_by_title(db: Session, title: str, user_id: int):
+    return db.query(models.CrossProject).filter(and_(models.CrossProject.title == title, models.CrossProject.owner_id == user_id)).first()
+
+
+def create_transcript(db: Session, transcript: schemas.TranscriptCreate, user_id: int, cross_project_id: int):
+    db_transcript = models.Transcript(**transcript.dict(), owner_id=user_id, cross_project_id=cross_project_id)
+    db.add(db_transcript)
+    db.commit()
+    db.refresh(db_transcript)
+    return db_transcript
+
+
+def get_transcript_by_title(db: Session, title: str, user_id: int):
+    return db.query(models.CrossProject).filter(and_(models.CrossProject.title == title, models.CrossProject.owner_id == user_id)).first()
 
 
 def create_utterance(db: Session, utterance: schemas.UtteranceCreate, project_id: int, speaker_id: int):
