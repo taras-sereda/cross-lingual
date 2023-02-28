@@ -69,12 +69,18 @@ def detect_speakers(input_media, project_name, user_email):
     return res
 
 
-def transcribe(project_name, language: str, named_speakers: str, user_email: str, demo_run: bool = True):
+def transcribe(project_name, language: str, named_speakers: str, user_email: str, options: list):
     """Transcribe input media with speaker diarization, resulting transcript will be in form:
     [ HH:MM:SS.sss --> HH:MM:SS.sss ]
     {SPEAKER}
     Transcribed text
     """
+    demo_run, save_speakers = False, False
+    if 'Demo Run' in options:
+        demo_run = True
+    if 'Save speakers' in options:
+        save_speakers = True
+
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
     if user is None:
@@ -99,6 +105,15 @@ def transcribe(project_name, language: str, named_speakers: str, user_email: str
         assert len(diarization.labels()) == len(speakers)
         diarization = diarization.rename_labels(generator=iter(speakers), copy=False)
 
+        if save_speakers:
+            db_spkrs = []
+            for spkr in speakers:
+                db_spkr = crud.get_speaker_by_name(db, spkr, user.id)
+                if not db_spkr:
+                    db_spkrs.append(crud.create_speaker(db, spkr, user.id))
+                else:
+                    db_spkrs.append(db_spkr)
+
     char_count = 0
     res = ''
     segments = []
@@ -118,8 +133,13 @@ def transcribe(project_name, language: str, named_speakers: str, user_email: str
         char_count += len(seg_res['text'])
         seg_name = f'output_{idx:03}.wav'
 
-        seg_path = cross_project.get_data_root().joinpath(seg_name)
-        sf.write(seg_path, seg_wav, cfg.stt.sample_rate)
+        # seg_path = cross_project.get_data_root().joinpath(seg_name)
+        # sf.write(seg_path, seg_wav, cfg.stt.sample_rate)
+
+        if named_speakers and save_speakers:
+            db_spkr = crud.get_speaker_by_name(db, speaker, user.id)
+            seg_path = db_spkr.get_speaker_data_root().joinpath(seg_name)
+            sf.write(seg_path, seg_wav, cfg.stt.sample_rate)
 
         ffmpeg_str += f' -ss {seg.start} -to {seg.end} -c copy {seg_name}'
     # quick and dirty way to cut audio on pieces with ffmpeg.
@@ -144,7 +164,7 @@ def save_transcript(project_name, text, lang, user_email):
         return gr.Image.update(visible=True)
 
     transcript_data = schemas.TranscriptCreate(text=text, lang=lang)
-    transcript_db = crud.create_transcript(db, transcript_data, user.id, cross_project.id)
+    transcript_db = crud.create_transcript(db, transcript_data, cross_project.id)
 
     with open(transcript_db.get_path(), 'w') as f:
         f.write(text)
@@ -168,7 +188,7 @@ with gr.Blocks() as transcriber:
             detected_lang = gr.Text(label='Detected language')
             num_chars = gr.Number(label='Number of characters')
             transcribe_button = gr.Button(value='Transcribe!')
-            demo_checkbox = gr.Checkbox(val=True, label='Demo Run')
+            options = gr.CheckboxGroup(choices=['Demo Run', 'Save speakers'], value=['Demo Run', 'Save speakers'])
             save_transcript_button = gr.Button(value='save')
             BASENJI_PIC = 'https://www.akc.org/wp-content/uploads/2017/11/Basenji-On-White-01.jpg'
             success_image = gr.Image(value=BASENJI_PIC, visible=False)
@@ -176,7 +196,7 @@ with gr.Blocks() as transcriber:
         detect_spkr_button.click(detect_speakers, inputs=[file, project_name, email], outputs=[detected_speakers])
         transcribe_button.click(
             transcribe,
-            inputs=[project_name, input_lang, named_speakers, email, demo_checkbox],
+            inputs=[project_name, input_lang, named_speakers, email, options],
             outputs=[text, detected_lang, num_chars])
         save_transcript_button.click(
             save_transcript,

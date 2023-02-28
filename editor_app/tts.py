@@ -19,7 +19,7 @@ from utils import compute_string_similarity, split_on_raw_utterances, raw_speake
 from datatypes import RawUtterance
 from . import schemas, crud, cfg
 from .database import SessionLocal
-from .models import User, Project, Utterance, Speaker
+from .models import User, Utterance, Speaker, CrossProject, Translation
 from .stt import stt_model, compute_and_store_score, get_or_compute_score, calculate_project_score
 
 tts_model = TextToSpeech()
@@ -49,7 +49,7 @@ def add_speaker(audio_tuple, speaker_name, user_email):
     db.close()
 
 
-def get_speakers(user_email):
+def get_speakers(user_email, cross_project_name: str = None):
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
     db.close()
@@ -62,8 +62,17 @@ def get_projects(user_email):
     db.close()
     return [spkr.title for spkr in user.projects]
 
+def get_cross_projects(user_email):
+    db: Session = SessionLocal()
+    user: User = crud.get_user_by_email(db, user_email)
+    db.close()
+    projects = []
+    for proj in user.crosslingual_projects:
+        for translation in proj.translations:
+            projects.append((proj.title, translation.lang))
+    return projects
 
-def read(title, raw_text, user_email, check_for_repetitions=True):
+def read(title, lang, raw_text, user_email, check_for_repetitions=True):
     if len(title) == 0:
         raise Exception(f"Project title {title} can't be empty.")
 
@@ -71,8 +80,10 @@ def read(title, raw_text, user_email, check_for_repetitions=True):
     user: User = crud.get_user_by_email(db, user_email)
     if not user:
         raise Exception(f"User {user_email} not found. Provide valid email")
-    if crud.get_project_by_title(db, title, user.id):
-        raise Exception(f"Project {title} already exists! Try to load it")
+    translation: Translation = crud.get_translation_by_title_and_lang(db, title, lang, user.id)
+    if not translation:
+        # raise Exception(f"Project {title} already exists! Try to load it")
+        raise Exception(f"At the moment only {title} existing translations are supported.")
 
     speakers_to_features = dict()
     data: list[RawUtterance] = []
@@ -94,8 +105,8 @@ def read(title, raw_text, user_email, check_for_repetitions=True):
         for text in split_and_recombine_text(utter.text):
             data.append(RawUtterance(utter.timecode, db_speaker.name, text))
 
-    project_data = schemas.ProjectCreate(title=title, text=raw_text, date_created=datetime.now())
-    project = crud.create_project(db, project_data, user.id)
+    # project_data = schemas.ProjectCreate(title=title, text=raw_text, date_created=datetime.now())
+    # project = crud.create_project(db, project_data, user.id)
 
     for idx, utter in enumerate(data):
         gen_start = datetime.now()
@@ -108,11 +119,11 @@ def read(title, raw_text, user_email, check_for_repetitions=True):
 
         utterance_data = schemas.UtteranceCreate(text=utter.text, utterance_idx=idx,
                                                  date_started=gen_start, timecode=utter.timecode)
-        utterance: Utterance = crud.create_utterance(db, utterance_data, project.id, speakers_to_features[utter.speaker]['id'])
+        utterance: Utterance = crud.create_utterance(db, utterance_data, translation.id, speakers_to_features[utter.speaker]['id'])
         sf.write(utterance.get_audio_path(), gen, cfg.tts.sample_rate)
         crud.update_any_db_row(db, utterance, date_completed=datetime.now())
 
-    project = crud.update_any_db_row(db, project, date_completed=datetime.now())
+    project = crud.update_any_db_row(db, translation, date_completed=datetime.now())
 
     for utter in project.utterances:
         # score already computed in editor.
@@ -179,6 +190,13 @@ def playground_read(text, speaker_name, user_email):
 
     return outputs
 
+def load_translation(cross_project_name: str, lang: str, user_email: str):
+    db = SessionLocal()
+    user: User = crud.get_user_by_email(db, user_email)
+    if not user:
+        raise Exception(f"User {user_email} not found. Provide valid email")
+    translation_project: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
+    return translation_project.text
 
 def load(project_name: str, user_email: str, from_idx: int, score_threshold=None):
     db = SessionLocal()
@@ -186,7 +204,7 @@ def load(project_name: str, user_email: str, from_idx: int, score_threshold=None
     if not user:
         raise Exception(f"User {user_email} not found. Provide valid email")
 
-    project: Project = crud.get_project_by_title(db, project_name, user.id)
+    project: CrossProject = crud.get_cross_project_by_title(db, project_name, user.id)
     if not project:
         raise Exception(f"no such project {project_name}. Provide valid project title")
     all_utterances = project.utterances
@@ -231,7 +249,7 @@ def reread(title, text, utterance_idx, speaker_name, user_email):
     user: User = crud.get_user_by_email(db, user_email)
     if not user:
         raise Exception(f"User {user_email} not found. Provide valid email")
-    project: Project = crud.get_project_by_title(db, title, user.id)
+    project: CrossProject = crud.get_cross_project_by_title(db, title, user.id)
     if not project:
         raise Exception(f"Project {title} doesn't exists!"
                         f"Normally this shouldn't happen")
@@ -271,7 +289,7 @@ def combine(title, user_email, load_duration_sec=120):
     if not user:
         raise Exception(f"User {user_email} not found. Provide valid email")
 
-    project = crud.get_project_by_title(db, title, user.id)
+    project: CrossProject = crud.get_cross_project_by_title(db, title, user.id)
     if not project:
         raise Exception(f"no such project {title}. Provide valid project title")
 

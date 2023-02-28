@@ -1,8 +1,8 @@
-
 import gradio as gr
 
-from . import cfg, example_text, example_voice_sample_path
-from .tts import add_speaker, get_speakers, get_projects, read, playground_read, reread, load, combine
+from editor_app import cfg, example_text, example_voice_sample_path
+from editor_app.tts import add_speaker, get_speakers, get_projects, read, playground_read, reread, load, combine, \
+    get_cross_projects, load_translation
 
 with gr.Blocks() as submitter:
     with gr.Row() as row0:
@@ -19,12 +19,14 @@ with gr.Blocks() as submitter:
             get_user_projects_button = gr.Button('Get projects')
             add_speaker_button.click(add_speaker, inputs=[reference_audio, speaker_name, email], outputs=[errors])
             get_speakers_button.click(get_speakers, inputs=[email], outputs=[speakers])
-            get_user_projects_button.click(get_projects, inputs=[email], outputs=[user_projects])
+            get_user_projects_button.click(get_cross_projects, inputs=[email], outputs=[user_projects])
 
         with gr.Column(scale=1) as col1:
             title = gr.Text(label='Title', placeholder="enter project title")
+            lang = gr.Text(label='Lang')
             text = gr.Text(label='Text')
             button = gr.Button(value='Go!', variant='primary')
+            load_translation_button = gr.Button('Load')
 
             with gr.Box() as b:
                 playground_header = gr.Markdown(value="Playground")
@@ -45,7 +47,8 @@ with gr.Blocks() as submitter:
                                     inputs=[playground_text, playground_spkr, email],
                                     outputs=playground_outputs)
 
-        button.click(fn=read, inputs=[title, text, email], outputs=[])
+        button.click(fn=read, inputs=[title, lang, text, email], outputs=[])
+        load_translation_button.click(load_translation, inputs=[title, lang, email], outputs=[text])
 
     gr.Markdown("Text examples")
     gr.Examples([example_text], [text])

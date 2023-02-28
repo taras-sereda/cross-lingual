@@ -63,7 +63,7 @@ def gradio_translate(project_name, tgt_lang, user_email):
     if translation_db is None:
         translation, num_src_char, num_tgt_char = translate(transcript.text, tgt_lang)
         translation_data = schemas.TranslationCreate(text=translation, lang=tgt_lang, date_created=datetime.now())
-        translation_db = crud.create_translation(db, translation_data, user.id, cross_project.id)
+        translation_db = crud.create_translation(db, translation_data, cross_project.id)
         with open(translation_db.get_path(), 'w') as f:
             f.write(translation)
     else:

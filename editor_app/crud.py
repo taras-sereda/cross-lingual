@@ -32,20 +32,20 @@ def create_speaker(db: Session, name: str, user_id: int):
     return db_speaker
 
 
-def get_speaker_by_name(db: Session, name: str, user_id: int):
+def get_speaker_by_name(db: Session, name: str, user_id: int) -> models.Speaker:
     return db.query(models.Speaker).filter(and_(models.Speaker.name == name, models.Speaker.owner_id == user_id)).first()
 
 
-def create_project(db: Session, project: schemas.ProjectCreate, user_id: int):
-    db_project = models.Project(**project.dict(), owner_id=user_id)
-    db.add(db_project)
-    db.commit()
-    db.refresh(db_project)
-    return db_project
-
-
-def get_project_by_title(db: Session, title: str, user_id: int):
-    return db.query(models.Project).filter(and_(models.Project.title == title, models.Project.owner_id == user_id)).first()
+# def create_project(db: Session, project: schemas.ProjectCreate, user_id: int):
+#     db_project = models.Project(**project.dict(), owner_id=user_id)
+#     db.add(db_project)
+#     db.commit()
+#     db.refresh(db_project)
+#     return db_project
+#
+#
+# def get_project_by_title(db: Session, title: str, user_id: int):
+#     return db.query(models.Project).filter(and_(models.Project.title == title, models.Project.owner_id == user_id)).first()
 
 
 def create_cross_project(db: Session, cross_project: schemas.CrossProjectCreate, user_id: int):
@@ -60,8 +60,8 @@ def get_cross_project_by_title(db: Session, title: str, user_id: int):
     return db.query(models.CrossProject).filter(and_(models.CrossProject.title == title, models.CrossProject.owner_id == user_id)).first()
 
 
-def create_transcript(db: Session, transcript: schemas.TranscriptCreate, user_id: int, cross_project_id: int):
-    db_transcript = models.Transcript(**transcript.dict(), owner_id=user_id, cross_project_id=cross_project_id)
+def create_transcript(db: Session, transcript: schemas.TranscriptCreate, cross_project_id: int):
+    db_transcript = models.Transcript(**transcript.dict(), cross_project_id=cross_project_id)
     db.add(db_transcript)
     db.commit()
     db.refresh(db_transcript)
@@ -72,8 +72,8 @@ def get_transcript_by_title(db: Session, title: str, user_id: int):
     return db.query(models.CrossProject).filter(and_(models.CrossProject.title == title, models.CrossProject.owner_id == user_id)).first()
 
 
-def create_translation(db: Session, translation: schemas.TranslationCreate, user_id: int, cross_project_id: int):
-    db_translation = models.Translation(**translation.dict(), owner_id=user_id, cross_project_id=cross_project_id)
+def create_translation(db: Session, translation: schemas.TranslationCreate, cross_project_id: int):
+    db_translation = models.Translation(**translation.dict(), cross_project_id=cross_project_id)
     db.add(db_translation)
     db.commit()
     db.refresh(db_translation)
@@ -83,23 +83,22 @@ def create_translation(db: Session, translation: schemas.TranslationCreate, user
 def get_translation_by_title_and_lang(db: Session, title: str, lang: str, user_id: int):
     transcript_db = get_transcript_by_title(db, title, user_id)
     return db.query(models.Translation).filter(and_(models.Translation.cross_project_id == transcript_db.id,
-                                                    models.Translation.owner_id == user_id,
                                                     models.Translation.lang == lang,
                                                     )).first()
 
 
-def create_utterance(db: Session, utterance: schemas.UtteranceCreate, project_id: int, speaker_id: int):
-    db_utterance = models.Utterance(**utterance.dict(), project_id=project_id, speaker_id=speaker_id)
+def create_utterance(db: Session, utterance: schemas.UtteranceCreate, translation_id: int, speaker_id: int):
+    db_utterance = models.Utterance(**utterance.dict(), translation_id=translation_id, speaker_id=speaker_id)
     db.add(db_utterance)
     db.commit()
     db.refresh(db_utterance)
     return db_utterance
 
 
-def get_utterance(db: Session, utterance_idx: int, project_id: int):
+def get_utterance(db: Session, utterance_idx: int, translation_id: int):
     return db.query(models.Utterance).filter(
         and_(models.Utterance.utterance_idx == utterance_idx,
-             models.Utterance.project_id == project_id)).first()
+             models.Utterance.translation_id == translation_id)).first()
 
 
 def update_any_db_row(db: Session, db_row, **kwargs):

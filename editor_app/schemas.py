@@ -20,23 +20,23 @@ class CrossProject(CrossProjectBase):
         orm_mode = True
 
 
-class ProjectBase(BaseModel):
-    title: str
-    text: str
-    date_created: datetime
-
-
-class ProjectCreate(ProjectBase):
-    pass
-
-
-class Project(ProjectBase):
-    id: int
-    owner_id: int
-    date_completed: datetime | None = None
-
-    class Config:
-        orm_mode = True
+# class ProjectBase(BaseModel):
+#     title: str
+#     text: str
+#     date_created: datetime
+#
+#
+# class ProjectCreate(ProjectBase):
+#     pass
+#
+#
+# class Project(ProjectBase):
+#     id: int
+#     owner_id: int
+#     date_completed: datetime | None = None
+#
+#     class Config:
+#         orm_mode = True
 
 
 class TranslationBase(BaseModel):
@@ -126,7 +126,7 @@ class UserCreate(UserBase):
 
 class User(UserBase):
     id: int
-    projects: list[Project] = []
+    cross_projects: list[CrossProject] = []
 
     class Config:
         orm_mode = True
