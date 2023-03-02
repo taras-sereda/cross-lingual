@@ -65,9 +65,10 @@ with gr.Blocks() as editor:
             user_projects = gr.Textbox(label='projects')
             get_user_projects_button = gr.Button('Get projects')
             get_speakers_button.click(get_speakers, inputs=[email], outputs=[speakers])
-            get_user_projects_button.click(get_projects, inputs=[email], outputs=[user_projects])
+            get_user_projects_button.click(get_cross_projects, inputs=[email], outputs=[user_projects])
 
             title = gr.Text(label='Title', placeholder="enter project title")
+            lang = gr.Text(label='Lang')
             utter_from_idx = gr.Number(label='utterance start index', value=0, precision=0)
             score_slider = gr.Slider(0, 1.0, label='min utterance score')
             button_load = gr.Button(value='Load', variant='primary')
@@ -93,13 +94,13 @@ with gr.Blocks() as editor:
 
                 try_again = gr.Button(value='try again', visible=False)
                 try_again.click(fn=reread,
-                                inputs=[title, utter_text, utter_idx, utter_speaker, email],
+                                inputs=[title, lang, utter_text, utter_idx, utter_speaker, email],
                                 outputs=[utter_audio, utter_speaker, utter_score])
 
                 outputs.extend([utter_text, utter_idx, utter_speaker, utter_score, utter_audio, try_again])
 
-        button_load.click(fn=load, inputs=[title, email, utter_from_idx, score_slider], outputs=outputs)
-        button_combine.click(fn=combine, inputs=[title, email], outputs=[combined_audio])
+        button_load.click(fn=load, inputs=[title, lang, email, utter_from_idx, score_slider], outputs=outputs)
+        button_combine.click(fn=combine, inputs=[title, lang, email], outputs=[combined_audio])
 
 
 if __name__ == '__main__':

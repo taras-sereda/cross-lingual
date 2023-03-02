@@ -17,6 +17,7 @@ diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_aut
 
 DEMO_DURATION = 120  # duration of demo in seconds
 
+
 def detect_speakers(input_media, project_name, user_email):
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
@@ -32,7 +33,7 @@ def detect_speakers(input_media, project_name, user_email):
     cross_project_data = schemas.CrossProjectCreate(title=project_name, media_name=name)
     cross_project = crud.create_cross_project(db, cross_project_data, user.id)
     media_path = shutil.copy(input_media.name, cross_project.get_media_path())
-    raw_wav_path = cross_project.get_raw_wav_path()
+    raw_wav_path = cross_project.get_raw_wav_path(sample_rate=cfg.stt.sample_rate)
     # ffmpeg
     ffmpeg_path = shutil.which('ffmpeg')
     # command = f"{ffmpeg_path} -i {media_path} -ac 1 -ar 16000 {raw_media_path}"
@@ -49,9 +50,21 @@ def detect_speakers(input_media, project_name, user_email):
         check=True,
         # stdout=subprocess.DEVNULL,
     )
-    # print(res)
-    waveform, sample_rate = gradio_read_audio_data(raw_wav_path)
 
+    subprocess.run([
+        f"{ffmpeg_path}",
+        "-hide_banner",
+        "-loglevel", "error",
+        "-i", f"{media_path}",
+        "-ac", "1",
+        "-ar", f"{22050}",
+        # "-acodec", f"pcm_s16le",
+        f"{cross_project.get_raw_wav_path(sample_rate=22050)}"],
+        check=True,
+        # stdout=subprocess.DEVNULL,
+    )
+
+    waveform, sample_rate = gradio_read_audio_data(raw_wav_path)
     diarization = diarization_model({'waveform': waveform.unsqueeze(0), 'sample_rate': sample_rate})
 
     speakers = set(diarization.labels())
@@ -93,7 +106,12 @@ def transcribe(project_name, language: str, named_speakers: str, user_email: str
     if len(language) == 0:
         language = None
 
-    waveform, sample_rate = gradio_read_audio_data(cross_project.get_raw_wav_path())
+    waveform, sample_rate = gradio_read_audio_data(cross_project.get_raw_wav_path(sample_rate=cfg.stt.sample_rate))
+    waveform_22k, _ = gradio_read_audio_data(cross_project.get_raw_wav_path(sample_rate=22050))
+    if demo_run:
+        # we don't need whole waveform for demo purposes, 30 sec is just a safety buffer.
+        waveform = waveform[:int((DEMO_DURATION+30)*cfg.stt.sample_rate)]
+        waveform_22k = waveform_22k[:int((DEMO_DURATION+30)*22050)]
     diarization = diarization_model({'waveform': waveform.unsqueeze(0), 'sample_rate': sample_rate})
 
     if named_speakers:
@@ -125,6 +143,7 @@ def transcribe(project_name, language: str, named_speakers: str, user_email: str
             break
 
         seg_wav = waveform[int(seg.start * cfg.stt.sample_rate): int(seg.end * cfg.stt.sample_rate)]
+        seg_wav_22k = waveform_22k[int(seg.start * 22050): int(seg.end * 22050)]
         seg_res = stt_model.transcribe(seg_wav, language=language)
         text = seg_res['text']
         lang = seg_res['language']
@@ -139,7 +158,7 @@ def transcribe(project_name, language: str, named_speakers: str, user_email: str
         if named_speakers and save_speakers:
             db_spkr = crud.get_speaker_by_name(db, speaker, user.id)
             seg_path = db_spkr.get_speaker_data_root().joinpath(seg_name)
-            sf.write(seg_path, seg_wav, cfg.stt.sample_rate)
+            sf.write(seg_path, seg_wav_22k, 22050)
 
         ffmpeg_str += f' -ss {seg.start} -to {seg.end} -c copy {seg_name}'
     # quick and dirty way to cut audio on pieces with ffmpeg.

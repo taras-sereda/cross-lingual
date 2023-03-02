@@ -62,6 +62,7 @@ def get_projects(user_email):
     db.close()
     return [spkr.title for spkr in user.projects]
 
+
 def get_cross_projects(user_email):
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
@@ -72,7 +73,8 @@ def get_cross_projects(user_email):
             projects.append((proj.title, translation.lang))
     return projects
 
-def read(title, lang, raw_text, user_email, check_for_repetitions=True):
+
+def read(title, lang, raw_text, user_email, check_for_repetitions=False):
     if len(title) == 0:
         raise Exception(f"Project title {title} can't be empty.")
 
@@ -104,9 +106,6 @@ def read(title, lang, raw_text, user_email, check_for_repetitions=True):
 
         for text in split_and_recombine_text(utter.text):
             data.append(RawUtterance(utter.timecode, db_speaker.name, text))
-
-    # project_data = schemas.ProjectCreate(title=title, text=raw_text, date_created=datetime.now())
-    # project = crud.create_project(db, project_data, user.id)
 
     for idx, utter in enumerate(data):
         gen_start = datetime.now()
@@ -190,6 +189,7 @@ def playground_read(text, speaker_name, user_email):
 
     return outputs
 
+
 def load_translation(cross_project_name: str, lang: str, user_email: str):
     db = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
@@ -198,15 +198,16 @@ def load_translation(cross_project_name: str, lang: str, user_email: str):
     translation_project: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
     return translation_project.text
 
-def load(project_name: str, user_email: str, from_idx: int, score_threshold=None):
+
+def load(cross_project_name: str, lang: str, user_email: str, from_idx: int, score_threshold=None):
     db = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
     if not user:
         raise Exception(f"User {user_email} not found. Provide valid email")
 
-    project: CrossProject = crud.get_cross_project_by_title(db, project_name, user.id)
+    project: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
     if not project:
-        raise Exception(f"no such project {project_name}. Provide valid project title")
+        raise Exception(f"no such project {cross_project_name}. Provide valid project title")
     all_utterances = project.utterances
 
     avg_project_score, all_scores = calculate_project_score(db, project)
@@ -244,14 +245,14 @@ def load(project_name: str, user_email: str, from_idx: int, score_threshold=None
     return res
 
 
-def reread(title, text, utterance_idx, speaker_name, user_email):
+def reread(cross_project_name, lang, text, utterance_idx, speaker_name, user_email):
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
     if not user:
         raise Exception(f"User {user_email} not found. Provide valid email")
-    project: CrossProject = crud.get_cross_project_by_title(db, title, user.id)
+    project: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
     if not project:
-        raise Exception(f"Project {title} doesn't exists!"
+        raise Exception(f"Project {cross_project_name} doesn't exists! "
                         f"Normally this shouldn't happen")
     new_speaker: Speaker = crud.get_speaker_by_name(db, speaker_name, user.id)
     if not new_speaker:
@@ -259,7 +260,7 @@ def reread(title, text, utterance_idx, speaker_name, user_email):
 
     utterance: Utterance = crud.get_utterance(db, utterance_idx, project.id)
     if not utterance:
-        raise Exception(f"Something went wrong, Utterance {utterance_idx} doesn't exists."
+        raise Exception(f"Something went wrong, Utterance {utterance_idx} doesn't exists. "
                         f"Normally this shouldn't happen")
     start_time = datetime.now()
     voice_samples, conditioning_latents = load_voices([speaker_name], [new_speaker.get_speaker_data_root().parent])
@@ -277,21 +278,21 @@ def reread(title, text, utterance_idx, speaker_name, user_email):
         'date_completed': datetime.now()
     }
     utterance = crud.update_any_db_row(db, utterance, **update_dict)
-    score = compute_and_store_score(db, utterance)
+    score = compute_and_store_score(db, utterance, lang='en' if lang == 'EN-US' else None)
     db.close()
     return (cfg.tts.sample_rate, gen), speaker_name, score
 
 
-def combine(title, user_email, load_duration_sec=120):
+def combine(cross_project_name, lang, user_email, load_duration_sec=120):
     db = SessionLocal()
 
     user: User = crud.get_user_by_email(db, user_email)
     if not user:
         raise Exception(f"User {user_email} not found. Provide valid email")
 
-    project: CrossProject = crud.get_cross_project_by_title(db, title, user.id)
+    project: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
     if not project:
-        raise Exception(f"no such project {title}. Provide valid project title")
+        raise Exception(f"no such project {cross_project_name}. Provide valid project title")
 
     utterances: list[Utterance] = project.utterances
     combined_dir = utterances[0].get_audio_path().parent.joinpath('combined')
@@ -325,6 +326,16 @@ def combine(title, user_email, load_duration_sec=120):
     for k, v in project_audio_tracks.items():
         sf.write(combined_dir.joinpath(f'combined_{k}.wav'), v, cfg.tts.sample_rate)
 
+    # quick mixing of all channels
+    all_channels = list(project_audio_tracks.values())
+    combined_waveform = np.array(all_channels[0])
+    for i in range(1, len(all_channels)):
+        combined_waveform += all_channels[i]
+    # normalize
+    combined_waveform /= np.abs(combined_waveform).max()
+
+    sf.write(combined_dir.joinpath(f'{project.cross_project.name}.wav'), combined_waveform, cfg.tts.sample_rate)
+
     with open(combined_dir.joinpath('metadata.json'), 'w') as fd:
         json.dump(metadata, fd)
 
@@ -333,7 +344,7 @@ def combine(title, user_email, load_duration_sec=120):
     # there is no need it sending gigabytes of data to front-end,
     # so loading load_duration_sec amount is sufficient.
     tracks = []
-    for track_path in combined_dir.glob("*.wav"):
+    for track_path in combined_dir.glob("combined_*.wav"):
         start = int(0 * cfg.tts.sample_rate)
         stop = start + int(load_duration_sec * cfg.tts.sample_rate)
         combined_wav, sample_rate = sf.read(track_path, start=start, stop=stop)

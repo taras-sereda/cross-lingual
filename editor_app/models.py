@@ -41,8 +41,8 @@ class CrossProject(Base):
     def get_media_path(self) -> pathlib.Path:
         return self.get_data_root().joinpath(self.media_name)
 
-    def get_raw_wav_path(self) -> pathlib.Path:
-        return self.get_media_path().with_suffix(".16kHz.wav")
+    def get_raw_wav_path(self, sample_rate) -> pathlib.Path:
+        return self.get_media_path().with_suffix(f".{sample_rate}.wav")
 
 
 class Transcript(Base):
@@ -77,25 +77,6 @@ class Translation(Base):
     def get_path(self):
         return self.get_data_root().joinpath(f'translation.{self.lang}.txt')
 
-
-
-# class Project(Base):
-#     __tablename__ = "project"
-#
-#     id = Column(Integer, primary_key=True)
-#     title = Column(String, nullable=False)
-#     text = Column(Text, nullable=False)
-#     date_created = Column(DateTime, nullable=False)
-#     date_completed = Column(DateTime)
-#     owner_id = Column(Integer, ForeignKey("user.id"))
-#     owner = relationship("User", back_populates="projects")
-#     utterances = relationship("Utterance", back_populates="project", cascade="all,delete-orphan")
-#
-#     def get_project_data_root(self) -> pathlib.Path:
-#         project_path: pathlib.Path = self.owner.get_user_data_root().joinpath('projects', self.title.strip())
-#         if not project_path.exists():
-#             project_path.mkdir(parents=True, exist_ok=True)
-#         return project_path
 
 class Speaker(Base):
     __tablename__ = "speaker"
