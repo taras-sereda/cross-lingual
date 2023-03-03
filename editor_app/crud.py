@@ -39,18 +39,6 @@ def get_speaker_by_name(db: Session, name: str, user_id: int) -> models.Speaker:
     return db.query(models.Speaker).filter(and_(models.Speaker.name == name, models.Speaker.owner_id == user_id)).first()
 
 
-# def create_project(db: Session, project: schemas.ProjectCreate, user_id: int):
-#     db_project = models.Project(**project.dict(), owner_id=user_id)
-#     db.add(db_project)
-#     db.commit()
-#     db.refresh(db_project)
-#     return db_project
-#
-#
-# def get_project_by_title(db: Session, title: str, user_id: int):
-#     return db.query(models.Project).filter(and_(models.Project.title == title, models.Project.owner_id == user_id)).first()
-
-
 def create_cross_project(db: Session, cross_project: schemas.CrossProjectCreate, user_id: int):
     db_project = models.CrossProject(**cross_project.dict(), owner_id=user_id)
     db.add(db_project)
