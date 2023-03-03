@@ -16,6 +16,7 @@ from utils import gradio_read_audio_data, not_raw_speaker_re
 diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_auth_token=cfg.diarization.auth_token)
 
 DEMO_DURATION = 120  # duration of demo in seconds
+AD_OFFSET = 120  # approx ad offset
 
 
 def detect_speakers(input_media, project_name, user_email):
@@ -108,10 +109,6 @@ def transcribe(project_name, language: str, named_speakers: str, user_email: str
 
     waveform, sample_rate = gradio_read_audio_data(cross_project.get_raw_wav_path(sample_rate=cfg.stt.sample_rate))
     waveform_22k, _ = gradio_read_audio_data(cross_project.get_raw_wav_path(sample_rate=22050))
-    if demo_run:
-        # we don't need whole waveform for demo purposes, 30 sec is just a safety buffer.
-        waveform = waveform[:int((DEMO_DURATION+30)*cfg.stt.sample_rate)]
-        waveform_22k = waveform_22k[:int((DEMO_DURATION+30)*22050)]
     diarization = diarization_model({'waveform': waveform.unsqueeze(0), 'sample_rate': sample_rate})
 
     if named_speakers:
@@ -136,11 +133,12 @@ def transcribe(project_name, language: str, named_speakers: str, user_email: str
     res = ''
     segments = []
     ffmpeg_str = ''
-
+    demo_duration = 0
     for idx, (seg, _, speaker) in enumerate(diarization.itertracks(yield_label=True)):
 
-        if demo_run and seg.start > DEMO_DURATION:
-            break
+        if demo_run:
+            if seg.start < AD_OFFSET:
+                continue
 
         seg_wav = waveform[int(seg.start * cfg.stt.sample_rate): int(seg.end * cfg.stt.sample_rate)]
         seg_wav_22k = waveform_22k[int(seg.start * 22050): int(seg.end * 22050)]
@@ -159,6 +157,11 @@ def transcribe(project_name, language: str, named_speakers: str, user_email: str
             db_spkr = crud.get_speaker_by_name(db, speaker, user.id)
             seg_path = db_spkr.get_speaker_data_root().joinpath(seg_name)
             sf.write(seg_path, seg_wav_22k, 22050)
+
+        if demo_run:
+            demo_duration += (seg.end - seg.start)
+            if demo_duration >= DEMO_DURATION:
+                break
 
         ffmpeg_str += f' -ss {seg.start} -to {seg.end} -c copy {seg_name}'
     # quick and dirty way to cut audio on pieces with ffmpeg.

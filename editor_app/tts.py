@@ -1,5 +1,7 @@
 import bisect
 import json
+import shutil
+import subprocess
 from collections import defaultdict
 from datetime import datetime
 
@@ -333,8 +335,21 @@ def combine(cross_project_name, lang, user_email, load_duration_sec=120):
         combined_waveform += all_channels[i]
     # normalize
     combined_waveform /= np.abs(combined_waveform).max()
+    combined_wav_path = combined_dir.joinpath(f'{project.cross_project.title}.wav')
 
-    sf.write(combined_dir.joinpath(f'{project.cross_project.name}.wav'), combined_waveform, cfg.tts.sample_rate)
+    sf.write(combined_wav_path, combined_waveform, cfg.tts.sample_rate)
+
+    ffmpeg_path = shutil.which('ffmpeg')
+    res = subprocess.run([
+        f"{ffmpeg_path}",
+        "-hide_banner",
+        "-loglevel", "error",
+        "-i", f"{combined_wav_path}",
+        "-ab", "320k",
+        f"{combined_wav_path.with_suffix('.mp3')}"],
+        check=True,
+        # stdout=subprocess.DEVNULL,
+    )
 
     with open(combined_dir.joinpath('metadata.json'), 'w') as fd:
         json.dump(metadata, fd)
