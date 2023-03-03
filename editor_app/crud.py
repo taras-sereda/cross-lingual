@@ -8,8 +8,11 @@ def get_user(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
 
-def get_user_by_email(db: Session, email: str) -> schemas.User:
-    return db.query(models.User).filter(models.User.email == email).first()
+def get_user_by_email(db: Session, email: str, check_exists=True) -> schemas.User:
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user and check_exists:
+        raise Exception(f"User {email} not found. Provide valid email")
+    return user
 
 
 def get_users(db: Session):

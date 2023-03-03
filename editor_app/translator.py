@@ -48,8 +48,6 @@ def get_num_char(text: str):
 def gradio_translate(project_name, tgt_lang, user_email):
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
-    if user is None:
-        raise Exception(f"User {user_email} not found. Provide valid email")
 
     cross_project: CrossProject = crud.get_cross_project_by_title(db, project_name, user.id)
     if cross_project is None:

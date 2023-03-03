@@ -22,8 +22,6 @@ AD_OFFSET = 120  # approx ad offset
 def detect_speakers(input_media, project_name, user_email):
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
-    if user is None:
-        raise Exception(f"User {user_email} not found. Provide valid email")
 
     cross_project: CrossProject = crud.get_cross_project_by_title(db, project_name, user.id)
     if cross_project is not None:
@@ -97,8 +95,6 @@ def transcribe(project_name, language: str, named_speakers: str, user_email: str
 
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
-    if user is None:
-        raise Exception(f"User {user_email} not found. Provide valid email")
 
     cross_project: CrossProject = crud.get_cross_project_by_title(db, project_name, user.id)
     if cross_project is None:
@@ -174,8 +170,6 @@ def transcribe(project_name, language: str, named_speakers: str, user_email: str
 def save_transcript(project_name, text, lang, user_email):
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
-    if user is None:
-        raise Exception(f"User {user_email} not found. Provide valid email")
 
     cross_project: CrossProject = crud.get_cross_project_by_title(db, project_name, user.id)
     if cross_project is None:

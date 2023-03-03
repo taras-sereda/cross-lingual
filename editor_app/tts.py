@@ -31,8 +31,6 @@ aligner = Wav2VecAlignment()
 def add_speaker(audio_tuple, speaker_name, user_email):
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
-    if not user:
-        raise Exception(f"User {user_email} not found. Provide valid email")
 
     if not raw_speaker_re.fullmatch(speaker_name):
         raise Exception(f"Invalid speaker name")
@@ -82,8 +80,6 @@ def read(title, lang, raw_text, user_email, check_for_repetitions=False):
 
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
-    if not user:
-        raise Exception(f"User {user_email} not found. Provide valid email")
     translation: Translation = crud.get_translation_by_title_and_lang(db, title, lang, user.id)
     if not translation:
         # raise Exception(f"Project {title} already exists! Try to load it")
@@ -195,8 +191,6 @@ def playground_read(text, speaker_name, user_email):
 def load_translation(cross_project_name: str, lang: str, user_email: str):
     db = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
-    if not user:
-        raise Exception(f"User {user_email} not found. Provide valid email")
     translation_project: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
     return translation_project.text
 
@@ -204,8 +198,6 @@ def load_translation(cross_project_name: str, lang: str, user_email: str):
 def load(cross_project_name: str, lang: str, user_email: str, from_idx: int, score_threshold=None):
     db = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
-    if not user:
-        raise Exception(f"User {user_email} not found. Provide valid email")
 
     project: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
     if not project:
@@ -250,8 +242,7 @@ def load(cross_project_name: str, lang: str, user_email: str, from_idx: int, sco
 def reread(cross_project_name, lang, text, utterance_idx, speaker_name, user_email):
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
-    if not user:
-        raise Exception(f"User {user_email} not found. Provide valid email")
+
     project: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
     if not project:
         raise Exception(f"Project {cross_project_name} doesn't exists! "
@@ -287,10 +278,7 @@ def reread(cross_project_name, lang, text, utterance_idx, speaker_name, user_ema
 
 def combine(cross_project_name, lang, user_email, load_duration_sec=120):
     db = SessionLocal()
-
     user: User = crud.get_user_by_email(db, user_email)
-    if not user:
-        raise Exception(f"User {user_email} not found. Provide valid email")
 
     project: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
     if not project:
