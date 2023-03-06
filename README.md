@@ -40,3 +40,10 @@ CxGs9E-QwEA.en-US.vtt
 - gradio: `gradio editor_app/editor2.py editor`
 
 7. combine audio and video: `ffmpeg -i demo_3PVQ0rN_jp4.webm -i demo_3PVQ0rN_jp4_english_shortened.wav -map 0:v -map 1:a  demo_3PVQ0rN_jp4_english.mp4`
+
+8. calculate durations for all *.mp3 files in the directory:
+    ```
+    find . -name "*.mp3" -exec ffprobe -hide_banner -v error -select_streams a:0 -show_entries stream=duration -of default=noprint_wrappers=1:nokey=1 {} \;  | tee durations.txt
+    awk '{ sum += $1 } END { print sum/60/60 }' durations.txt
+    
+    ```
