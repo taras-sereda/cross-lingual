@@ -8,6 +8,7 @@ from datetime import datetime
 import gradio as gr
 import soundfile as sf
 import numpy as np
+import pandas as pd
 import torch
 from sqlalchemy.orm import Session
 
@@ -49,29 +50,27 @@ def add_speaker(audio_tuple, speaker_name, user_email):
     db.close()
 
 
-def get_speakers(user_email, cross_project_name: str = None):
+def get_speakers(user_email, limit=10) -> pd.DataFrame:
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
     db.close()
-    return [spkr.name for spkr in user.speakers]
+    data = defaultdict(list)
+    for spkr in user.speakers:
+        data['name'] += [spkr.name]
+    return pd.DataFrame(data=data).head(limit)
 
 
-def get_projects(user_email):
+def get_cross_projects(user_email, limit=10) -> pd.DataFrame:
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
     db.close()
-    return [spkr.title for spkr in user.projects]
-
-
-def get_cross_projects(user_email):
-    db: Session = SessionLocal()
-    user: User = crud.get_user_by_email(db, user_email)
-    db.close()
-    projects = []
+    data = defaultdict(list)
     for proj in user.crosslingual_projects:
         for translation in proj.translations:
-            projects.append((proj.title, translation.lang))
-    return projects
+            data['title'] += [proj.title]
+            data['lang'] += [translation.lang]
+            data['date_completed'] += [translation.date_completed]
+    return pd.DataFrame(data=data).sort_values(by=['date_completed'], ascending=False, na_position='first').head(limit)
 
 
 def read(title, lang, raw_text, user_email, check_for_repetitions=False):
