@@ -19,7 +19,12 @@ DEMO_DURATION = 120  # duration of demo in seconds
 AD_OFFSET = 120  # approx ad offset
 
 
-def detect_speakers(input_media, project_name, user_email):
+def detect_speakers(input_media, project_name, user_email, options: list):
+
+    demo_run, save_speakers = False, False
+    if 'Demo Run' in options:
+        demo_run = True
+
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
 
@@ -64,6 +69,9 @@ def detect_speakers(input_media, project_name, user_email):
     )
 
     waveform, sample_rate = gradio_read_audio_data(raw_wav_path)
+    if demo_run:
+        waveform = waveform[:(10*60*cfg.stt.sample_rate)]
+
     diarization = diarization_model({'waveform': waveform.unsqueeze(0), 'sample_rate': sample_rate})
 
     speakers = set(diarization.labels())
@@ -105,6 +113,9 @@ def transcribe(project_name, language: str, named_speakers: str, user_email: str
 
     waveform, sample_rate = gradio_read_audio_data(cross_project.get_raw_wav_path(sample_rate=cfg.stt.sample_rate))
     waveform_22k, _ = gradio_read_audio_data(cross_project.get_raw_wav_path(sample_rate=22050))
+    if demo_run:
+        waveform = waveform[:(10*60*cfg.stt.sample_rate)]
+        waveform_22k = waveform_22k[:(10*60*22050)]
     diarization = diarization_model({'waveform': waveform.unsqueeze(0), 'sample_rate': sample_rate})
 
     if named_speakers:
@@ -209,7 +220,7 @@ with gr.Blocks() as transcriber:
             BASENJI_PIC = 'https://www.akc.org/wp-content/uploads/2017/11/Basenji-On-White-01.jpg'
             success_image = gr.Image(value=BASENJI_PIC, visible=False)
 
-        detect_spkr_button.click(detect_speakers, inputs=[file, project_name, email], outputs=[detected_speakers])
+        detect_spkr_button.click(detect_speakers, inputs=[file, project_name, email, options], outputs=[detected_speakers])
         transcribe_button.click(
             transcribe,
             inputs=[project_name, input_lang, named_speakers, email, options],
