@@ -1,11 +1,12 @@
 import gradio as gr
 
-from editor_app import cfg, example_text, example_voice_sample_path
+from editor_app import cfg, example_text, example_voice_sample_path, html_menu
 from editor_app.tts import add_speaker, get_speakers, read, playground_read, reread, load, combine, get_cross_projects, load_translation
 
 with gr.Blocks() as submitter:
     with gr.Row() as row0:
         with gr.Column(scale=1) as col0:
+            menu = gr.HTML(html_menu)
             email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
             reference_audio = gr.Files(label='reference audio', file_types=['audio'])
             speaker_name = gr.Textbox(label='Speaker name', placeholder='Enter speaker name, allowed symbols: lower case letters, numbers, and _')
@@ -57,6 +58,7 @@ with gr.Blocks() as submitter:
 with gr.Blocks() as editor:
     with gr.Row() as editor_row0:
         with gr.Column(scale=1) as editor_col0:
+            menu = gr.HTML(html_menu)
             email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
             speakers = gr.Dataframe(label='speakers', col_count=1)
             user_projects = gr.Dataframe(label='projects')

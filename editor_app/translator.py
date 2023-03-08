@@ -4,7 +4,7 @@ import deepl
 import gradio as gr
 from sqlalchemy.orm import Session
 
-from editor_app import cfg, crud, schemas
+from editor_app import cfg, crud, schemas, html_menu
 from editor_app.database import SessionLocal
 from editor_app.models import User, CrossProject
 from utils import split_on_raw_utterances
@@ -75,6 +75,7 @@ def gradio_translate(project_name, tgt_lang, user_email):
 with gr.Blocks() as translator:
     with gr.Row() as row0:
         with gr.Column(scale=1) as col0:
+            menu = gr.HTML(html_menu)
             email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
             project_name = gr.Text(label='Project name', placeholder="enter your project name")
             src_text = gr.Text(label='Text transcription', interactive=True)

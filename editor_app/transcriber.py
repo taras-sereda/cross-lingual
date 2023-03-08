@@ -7,7 +7,7 @@ import shutil
 from sqlalchemy.orm import Session
 from pyannote.audio import Pipeline
 
-from editor_app import cfg, crud, schemas
+from editor_app import cfg, crud, schemas, html_menu
 from editor_app.database import SessionLocal
 from editor_app.models import User, CrossProject
 from editor_app.stt import stt_model
@@ -202,6 +202,7 @@ def save_transcript(project_name, text, lang, user_email):
 with gr.Blocks() as transcriber:
     with gr.Row() as row0:
         with gr.Column(scale=1) as col0:
+            menu = gr.HTML(value=html_menu)
             email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
             project_name = gr.Text(label='Project name', placeholder="enter your project name")
             file = gr.File(label='input media')
