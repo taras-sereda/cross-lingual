@@ -1,4 +1,4 @@
-import subprocess
+import tempfile
 
 import gradio as gr
 import soundfile as sf
@@ -12,6 +12,7 @@ from editor_app.database import SessionLocal
 from editor_app.models import User, CrossProject
 from editor_app.stt import stt_model
 from utils import gradio_read_audio_data, not_raw_speaker_re
+from media_utils import download_youtube_media, extract_and_resample_audio_ffmpeg, extract_video_id, get_youtube_embed_code
 
 diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_auth_token=cfg.diarization.auth_token)
 
@@ -19,7 +20,7 @@ DEMO_DURATION = 120  # duration of demo in seconds
 AD_OFFSET = 120  # approx ad offset
 
 
-def detect_speakers(input_media, project_name, user_email, options: list):
+def detect_speakers(input_media, media_link, project_name, user_email, options: list):
 
     demo_run, save_speakers = False, False
     if 'Demo Run' in options:
@@ -32,41 +33,26 @@ def detect_speakers(input_media, project_name, user_email, options: list):
     if cross_project is not None:
         raise Exception(f"CrossProject {project_name} already exists, pick another name")
 
-    name = input_media.name.split('/')[-1]
+    if media_link is not None:
+        tmp_media_path = download_youtube_media(media_link, tempfile.gettempdir())
+        name = tmp_media_path.name
+    elif input_media is not None:
+        tmp_media_path = input_media.name
+        name = tmp_media_path.split('/')[-1]
+
+    else:
+        raise Exception(f"either media_link or media file should be provided")
+
+    # TODO refactor, I need to have media path befor I create crosslingual db entry.
+    # TODO Add more check and atomicity. I don't want to manually cleanup disk and database if something went wrong while project creation.
 
     cross_project_data = schemas.CrossProjectCreate(title=project_name, media_name=name)
     cross_project = crud.create_cross_project(db, cross_project_data, user.id)
-    media_path = shutil.copy(input_media.name, cross_project.get_media_path())
+    media_path = shutil.copy(tmp_media_path, cross_project.get_media_path())
     raw_wav_path = cross_project.get_raw_wav_path(sample_rate=cfg.stt.sample_rate)
-    # ffmpeg
-    ffmpeg_path = shutil.which('ffmpeg')
-    # command = f"{ffmpeg_path} -i {media_path} -ac 1 -ar 16000 {raw_media_path}"
-    # print(os.environ.get('PATH'))
-    res = subprocess.run([
-        f"{ffmpeg_path}",
-        "-hide_banner",
-        "-loglevel", "error",
-        "-i", f"{media_path}",
-        "-ac", "1",
-        "-ar", f"{cfg.stt.sample_rate}",
-        # "-acodec", f"pcm_s16le",
-        f"{raw_wav_path}"],
-        check=True,
-        # stdout=subprocess.DEVNULL,
-    )
 
-    subprocess.run([
-        f"{ffmpeg_path}",
-        "-hide_banner",
-        "-loglevel", "error",
-        "-i", f"{media_path}",
-        "-ac", "1",
-        "-ar", f"{22050}",
-        # "-acodec", f"pcm_s16le",
-        f"{cross_project.get_raw_wav_path(sample_rate=22050)}"],
-        check=True,
-        # stdout=subprocess.DEVNULL,
-    )
+    res0 = extract_and_resample_audio_ffmpeg(media_path, raw_wav_path, cfg.stt.sample_rate)
+    res1 = extract_and_resample_audio_ffmpeg(media_path, cross_project.get_raw_wav_path(sample_rate=22050), 22050)
 
     waveform, sample_rate = gradio_read_audio_data(raw_wav_path)
     if demo_run:
@@ -86,7 +72,18 @@ def detect_speakers(input_media, project_name, user_email, options: list):
     for spkr in sorted(speakers):
         row = f'{spkr}: {speaker_samples[spkr]}\n'
         res += row
-    return res
+
+    results = [res]
+    if media_link is not None:
+        youtube_id = extract_video_id(media_link)
+        iframe_val = get_youtube_embed_code(youtube_id)
+        results.append(gr.HTML.update(value=iframe_val))
+    else:
+        # https://www.youtube.com/watch?v=rgOylRHp1gM&ab_channel=Fluppy
+        iframe_val = get_youtube_embed_code("rgOylRHp1gM")
+        results.append(gr.HTML.update(value=iframe_val))
+
+    return results
 
 
 def transcribe(project_name, language: str, named_speakers: str, user_email: str, options: list):
@@ -205,6 +202,8 @@ with gr.Blocks() as transcriber:
             menu = gr.HTML(value=html_menu)
             email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
             project_name = gr.Text(label='Project name', placeholder="enter your project name")
+            media_link = gr.Text(label='link', placeholder='Link to youtube video, or any audio file')
+            iframe = gr.HTML(label='youtube video')
             file = gr.File(label='input media')
             detect_spkr_button = gr.Button(value='Detect speakers')
             detected_speakers = gr.Text(label='Ordinal speakers')
@@ -221,7 +220,9 @@ with gr.Blocks() as transcriber:
             BASENJI_PIC = 'https://www.akc.org/wp-content/uploads/2017/11/Basenji-On-White-01.jpg'
             success_image = gr.Image(value=BASENJI_PIC, visible=False)
 
-        detect_spkr_button.click(detect_speakers, inputs=[file, project_name, email, options], outputs=[detected_speakers])
+        detect_spkr_button.click(detect_speakers,
+                                 inputs=[file, media_link, project_name, email, options],
+                                 outputs=[detected_speakers, iframe])
         transcribe_button.click(
             transcribe,
             inputs=[project_name, input_lang, named_speakers, email, options],

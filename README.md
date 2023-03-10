@@ -47,3 +47,5 @@ CxGs9E-QwEA.en-US.vtt
     awk '{ sum += $1 } END { print sum/60/60 }' durations.txt
     
     ```
+
+9. play audio in command line start from sec: `play <input_audio.wav> trim <sec>`
