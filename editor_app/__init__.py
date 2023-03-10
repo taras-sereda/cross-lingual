@@ -6,6 +6,7 @@ from omegaconf import OmegaConf
 prj_root = Path(__file__).parent.parent
 cfg = OmegaConf.load(prj_root.joinpath('config.yaml'))
 data_root = prj_root.joinpath(cfg.db.data_root)
+data_root.mkdir(exist_ok=True, parents=True)
 
 if torch.cuda.is_available():
     preset = 'standard'

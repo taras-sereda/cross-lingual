@@ -44,14 +44,13 @@ with gr.Blocks() as submitter:
                                     outputs=playground_outputs)
 
         button.click(fn=read, inputs=[title, lang, text, email], outputs=[])
-        load_translation_button.click(load_translation, inputs=[title, lang, email], outputs=[text])
+        load_translation_button.click(load_translation, inputs=[title, lang, email], outputs=[text, speakers])
 
     gr.Markdown("Text examples")
     gr.Examples([example_text], [text])
     gr.Markdown("Audio examples")
     gr.Examples([example_voice_sample_path], [reference_audio])
 
-    submitter.load(get_speakers, inputs=[email], outputs=[speakers])
     submitter.load(get_cross_projects, inputs=[email], outputs=[user_projects])
 
 
@@ -78,7 +77,7 @@ with gr.Blocks() as editor:
             button_combine = gr.Button(value='Combine')
             combined_audio = gr.Audio(visible=False)
 
-        outputs = [text, num_utterance, avg_prj_score]
+        outputs = [speakers, text, num_utterance, avg_prj_score]
         with gr.Column(scale=1, variant='compact') as editor_col1:
             for i in range(cfg.editor.max_utterance):
 
@@ -100,7 +99,6 @@ with gr.Blocks() as editor:
         button_load.click(fn=load, inputs=[title, lang, email, utter_from_idx, score_slider], outputs=outputs)
         button_combine.click(fn=combine, inputs=[title, lang, email], outputs=[combined_audio])
 
-    editor.load(get_speakers, inputs=[email], outputs=[speakers])
     editor.load(get_cross_projects, inputs=[email], outputs=[user_projects])
 
 

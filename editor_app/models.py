@@ -1,5 +1,5 @@
 import pathlib
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Boolean, Float
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Boolean, Float, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from . import data_root
@@ -12,7 +12,6 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     email = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=False)
-    speakers = relationship("Speaker", back_populates="owner", lazy='joined')
     crosslingual_projects = relationship("CrossProject", back_populates="owner", lazy='joined')
 
     def get_user_data_root(self) -> pathlib.Path:
@@ -32,6 +31,7 @@ class CrossProject(Base):
     owner = relationship("User", back_populates="crosslingual_projects")
     transcript = relationship("Transcript", back_populates="cross_project")
     translations = relationship("Translation", back_populates="cross_project", lazy='joined')
+    speakers = relationship("Speaker", back_populates="cross_project", lazy='joined')
 
     def get_data_root(self) -> pathlib.Path:
         project_path: pathlib.Path = self.owner.get_user_data_root().joinpath('cross_projects', self.title.strip())
@@ -83,12 +83,15 @@ class Speaker(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    owner_id = Column(Integer, ForeignKey("user.id"))
-    owner: User = relationship("User", back_populates="speakers", lazy='joined')
+    alt_name = Column(String)
+    cross_project_id = Column(Integer, ForeignKey("crosslingual_project.id"))
+    cross_project = relationship("CrossProject", back_populates="speakers", lazy='joined')
     utterances = relationship("Utterance", back_populates="speaker")
+    # Withing single cross project, speaker name is enforced being unique.
+    UniqueConstraint('name', 'cross_project_id', name='uq_name_cross_project_id')
 
     def get_speaker_data_root(self) -> pathlib.Path:
-        speaker_dir_path = self.owner.get_user_data_root().joinpath('voices', f'{self.name.lower()}')
+        speaker_dir_path = self.cross_project.get_data_root().joinpath('voices', f'{self.name.lower()}')
         speaker_dir_path.mkdir(parents=True, exist_ok=True)
         return speaker_dir_path
 

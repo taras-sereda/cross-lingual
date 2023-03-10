@@ -27,16 +27,16 @@ def create_user(db: Session, user: schemas.UserCreate):
     return db_user
 
 
-def create_speaker(db: Session, name: str, user_id: int):
-    db_speaker = models.Speaker(name=name, owner_id=user_id)
+def create_speaker(db: Session, name: str, cross_project_id: int):
+    db_speaker = models.Speaker(name=name, cross_project_id=cross_project_id)
     db.add(db_speaker)
     db.commit()
     db.refresh(db_speaker)
     return db_speaker
 
 
-def get_speaker_by_name(db: Session, name: str, user_id: int) -> models.Speaker:
-    return db.query(models.Speaker).filter(and_(models.Speaker.name == name, models.Speaker.owner_id == user_id)).first()
+def get_speaker_by_name(db: Session, name: str, cross_project_id: int) -> models.Speaker:
+    return db.query(models.Speaker).filter(and_(models.Speaker.name == name, models.Speaker.cross_project_id == cross_project_id)).first()
 
 
 def create_cross_project(db: Session, cross_project: schemas.CrossProjectCreate, user_id: int):

@@ -30,6 +30,7 @@ aligner = Wav2VecAlignment()
 
 
 def add_speaker(audio_tuple, speaker_name, user_email):
+    raise NotImplementedError
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
 
@@ -50,12 +51,13 @@ def add_speaker(audio_tuple, speaker_name, user_email):
     db.close()
 
 
-def get_speakers(user_email, limit=10) -> pd.DataFrame:
+def get_speakers(user_email, cross_project_name, limit=10) -> pd.DataFrame:
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
+    cross_project = crud.get_cross_project_by_title(db, cross_project_name, user.id)
     db.close()
     data = defaultdict(list)
-    for spkr in user.speakers:
+    for spkr in cross_project.speakers:
         data['name'] += [spkr.name]
     return pd.DataFrame(data=data).head(limit)
 
@@ -88,7 +90,7 @@ def read(title, lang, raw_text, user_email, check_for_repetitions=False):
     data: list[RawUtterance] = []
     for utter in split_on_raw_utterances(raw_text):
 
-        db_speaker: Speaker = crud.get_speaker_by_name(db, utter.speaker, user.id)
+        db_speaker: Speaker = crud.get_speaker_by_name(db, utter.speaker, translation.cross_project_id)
         if not db_speaker:
             raise Exception(f"No such speaker {utter.speaker} {db_speaker}")
 
@@ -191,7 +193,8 @@ def load_translation(cross_project_name: str, lang: str, user_email: str):
     db = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
     translation_project: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
-    return translation_project.text
+    speakears = get_speakers(user_email, cross_project_name)
+    return translation_project.text, speakears
 
 
 def load(cross_project_name: str, lang: str, user_email: str, from_idx: int, score_threshold=None):
@@ -204,7 +207,8 @@ def load(cross_project_name: str, lang: str, user_email: str, from_idx: int, sco
     all_utterances = project.utterances
 
     avg_project_score, all_scores = calculate_project_score(db, project)
-    res = [project.text, len(all_utterances), avg_project_score]
+    speakers = get_speakers(user_email, cross_project_name)
+    res = [speakers, project.text, len(all_utterances), avg_project_score]
 
     if score_threshold > 0.0:
         temp = [(sc, ut) for sc, ut in sorted(zip(all_scores, all_utterances), key=lambda x: x[0])]
@@ -242,15 +246,15 @@ def reread(cross_project_name, lang, text, utterance_idx, speaker_name, user_ema
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
 
-    project: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
-    if not project:
+    translation: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
+    if not translation:
         raise Exception(f"Project {cross_project_name} doesn't exists! "
                         f"Normally this shouldn't happen")
-    new_speaker: Speaker = crud.get_speaker_by_name(db, speaker_name, user.id)
+    new_speaker: Speaker = crud.get_speaker_by_name(db, speaker_name, translation.cross_project_id)
     if not new_speaker:
         raise Exception(f"Speaker {speaker_name} doesn't exists. Add it first")
 
-    utterance: Utterance = crud.get_utterance(db, utterance_idx, project.id)
+    utterance: Utterance = crud.get_utterance(db, utterance_idx, translation.id)
     if not utterance:
         raise Exception(f"Something went wrong, Utterance {utterance_idx} doesn't exists. "
                         f"Normally this shouldn't happen")

@@ -127,9 +127,9 @@ def transcribe(project_name, language: str, named_speakers: str, user_email: str
         if save_speakers:
             db_spkrs = []
             for spkr in speakers:
-                db_spkr = crud.get_speaker_by_name(db, spkr, user.id)
+                db_spkr = crud.get_speaker_by_name(db, spkr, cross_project.id)
                 if not db_spkr:
-                    db_spkrs.append(crud.create_speaker(db, spkr, user.id))
+                    db_spkrs.append(crud.create_speaker(db, spkr, cross_project.id))
                 else:
                     db_spkrs.append(db_spkr)
 
