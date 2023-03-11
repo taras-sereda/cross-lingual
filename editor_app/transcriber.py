@@ -1,19 +1,18 @@
+import shutil
 import tempfile
 from collections import Counter
 
 import gradio as gr
 import soundfile as sf
-import shutil
-
-from sqlalchemy.orm import Session
 from pyannote.audio import Pipeline
+from sqlalchemy.orm import Session
 
 from editor_app import cfg, crud, schemas, html_menu
 from editor_app.database import SessionLocal
-from editor_app.models import User, CrossProject
 from editor_app.stt import stt_model
-from utils import gradio_read_audio_data, not_raw_speaker_re
+from editor_app.tts import get_cross_projects
 from media_utils import download_youtube_media, extract_and_resample_audio_ffmpeg, extract_video_id, get_youtube_embed_code
+from utils import gradio_read_audio_data
 
 diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_auth_token=cfg.diarization.auth_token)
 
@@ -36,9 +35,9 @@ def transcribe(input_media, media_link, project_name, language: str, user_email:
         language = None
 
     db: Session = SessionLocal()
-    user: User = crud.get_user_by_email(db, user_email)
+    user = crud.get_user_by_email(db, user_email)
 
-    cross_project: CrossProject = crud.get_cross_project_by_title(db, project_name, user.id)
+    cross_project = crud.get_cross_project_by_title(db, project_name, user.id, ensure_exists=False)
     if cross_project is not None:
         raise Exception(f"CrossProject {project_name} already exists, pick another name")
 
@@ -141,11 +140,8 @@ def transcribe(input_media, media_link, project_name, language: str, user_email:
 
 def save_transcript(project_name, text, lang, user_email):
     db: Session = SessionLocal()
-    user: User = crud.get_user_by_email(db, user_email)
-
-    cross_project: CrossProject = crud.get_cross_project_by_title(db, project_name, user.id)
-    if cross_project is None:
-        raise Exception(f"CrossProject {project_name} doesn't exists")
+    user = crud.get_user_by_email(db, user_email)
+    cross_project = crud.get_cross_project_by_title(db, project_name, user.id, ensure_exists=True)
 
     if len(cross_project.transcript) > 0:
         print('Transcript already saved!!!')
@@ -165,6 +161,8 @@ with gr.Blocks() as transcriber:
         with gr.Column(scale=1) as col0:
             menu = gr.HTML(value=html_menu)
             email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
+            user_projects = gr.Dataframe(label='user projects')
+
             project_name = gr.Text(label='Project name', placeholder="enter your project name")
             media_link = gr.Text(label='link', placeholder='Link to youtube video, or any audio file')
             iframe = gr.HTML(label='youtube video')
@@ -189,6 +187,8 @@ with gr.Blocks() as transcriber:
             save_transcript,
             inputs=[project_name, text, detected_lang, email],
             outputs=[success_image])
+
+    transcriber.load(get_cross_projects, inputs=[email], outputs=[user_projects])
 
 if __name__ == '__main__':
     transcriber.launch(debug=True)

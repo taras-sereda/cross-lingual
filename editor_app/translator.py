@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from editor_app import cfg, crud, schemas, html_menu
 from editor_app.database import SessionLocal
-from editor_app.models import User, CrossProject
+from editor_app.tts import get_cross_projects
 from utils import split_on_raw_utterances
 
 deepl_translator = deepl.Translator(cfg.translation.auth_token)
@@ -47,11 +47,8 @@ def get_num_char(text: str):
 
 def gradio_translate(project_name, tgt_lang, user_email):
     db: Session = SessionLocal()
-    user: User = crud.get_user_by_email(db, user_email)
-
-    cross_project: CrossProject = crud.get_cross_project_by_title(db, project_name, user.id)
-    if cross_project is None:
-        raise Exception(f"CrossProject {project_name} doesn't exists")
+    user = crud.get_user_by_email(db, user_email)
+    cross_project = crud.get_cross_project_by_title(db, project_name, user.id)
 
     # TODO. ensure one-to-one relationship.
     assert len(cross_project.transcript) == 1
@@ -77,6 +74,8 @@ with gr.Blocks() as translator:
         with gr.Column(scale=1) as col0:
             menu = gr.HTML(html_menu)
             email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
+            user_projects = gr.Dataframe(label='user projects')
+
             project_name = gr.Text(label='Project name', placeholder="enter your project name")
             src_text = gr.Text(label='Text transcription', interactive=True)
             tgt_lang = gr.Text(label='Target Language', value='EN-US')
@@ -88,6 +87,8 @@ with gr.Blocks() as translator:
             button2 = gr.Button(value='Load and go!')
         button.click(translate, inputs=[src_text, tgt_lang], outputs=[tgt_text, num_src_chars, num_tgt_chars])
         button2.click(gradio_translate, inputs=[project_name, tgt_lang, email], outputs=[src_text, tgt_text, num_src_chars, num_tgt_chars])
+
+    translator.load(get_cross_projects, inputs=[email], outputs=[user_projects])
 
 if __name__ == '__main__':
     translator.launch(debug=True)

@@ -1,7 +1,5 @@
 import bisect
 import json
-import shutil
-import subprocess
 from collections import defaultdict
 from datetime import datetime
 
@@ -17,12 +15,12 @@ from tortoise.utils.audio import load_voices, load_audio
 from tortoise.utils.text import split_and_recombine_text
 from tortoise.utils.wav2vec_alignment import Wav2VecAlignment
 
-from utils import compute_string_similarity, split_on_raw_utterances, raw_speaker_re, time_re, normalize_text, \
-    find_single_repetition
+from media_utils import convert_wav_to_mp3_ffmpeg
+from utils import compute_string_similarity, split_on_raw_utterances, raw_speaker_re, time_re, normalize_text, find_single_repetition
 from datatypes import RawUtterance
 from . import schemas, crud, cfg
 from .database import SessionLocal
-from .models import User, Utterance, Speaker, CrossProject, Translation
+from .models import User, Utterance
 from .stt import stt_model, compute_and_store_score, get_or_compute_score, calculate_project_score
 
 tts_model = TextToSpeech()
@@ -53,7 +51,7 @@ def add_speaker(audio_tuple, speaker_name, user_email):
 
 def get_speakers(user_email, cross_project_name, limit=10) -> pd.DataFrame:
     db: Session = SessionLocal()
-    user: User = crud.get_user_by_email(db, user_email)
+    user = crud.get_user_by_email(db, user_email)
     cross_project = crud.get_cross_project_by_title(db, cross_project_name, user.id)
     db.close()
     data = defaultdict(list)
@@ -64,7 +62,7 @@ def get_speakers(user_email, cross_project_name, limit=10) -> pd.DataFrame:
 
 def get_cross_projects(user_email, limit=10) -> pd.DataFrame:
     db: Session = SessionLocal()
-    user: User = crud.get_user_by_email(db, user_email)
+    user = crud.get_user_by_email(db, user_email)
     db.close()
     data = defaultdict(list)
     for proj in user.crosslingual_projects:
@@ -80,8 +78,8 @@ def read(title, lang, raw_text, user_email, check_for_repetitions=False):
         raise Exception(f"Project title {title} can't be empty.")
 
     db: Session = SessionLocal()
-    user: User = crud.get_user_by_email(db, user_email)
-    translation: Translation = crud.get_translation_by_title_and_lang(db, title, lang, user.id)
+    user = crud.get_user_by_email(db, user_email)
+    translation = crud.get_translation_by_title_and_lang(db, title, lang, user.id)
     if not translation:
         # raise Exception(f"Project {title} already exists! Try to load it")
         raise Exception(f"At the moment only {title} existing translations are supported.")
@@ -90,9 +88,9 @@ def read(title, lang, raw_text, user_email, check_for_repetitions=False):
     data: list[RawUtterance] = []
     for utter in split_on_raw_utterances(raw_text):
 
-        db_speaker: Speaker = crud.get_speaker_by_name(db, utter.speaker, translation.cross_project_id)
+        db_speaker = crud.get_speaker_by_name(db, utter.speaker, translation.cross_project_id)
         if not db_speaker:
-            raise Exception(f"No such speaker {utter.speaker} {db_speaker}")
+            raise Exception(f"No such speaker {utter.speaker}")
 
         # load voice samples and conditioning latents.
         if db_speaker.name not in speakers_to_features:
@@ -117,7 +115,7 @@ def read(title, lang, raw_text, user_email, check_for_repetitions=False):
 
         utterance_data = schemas.UtteranceCreate(text=utter.text, utterance_idx=idx,
                                                  date_started=gen_start, timecode=utter.timecode)
-        utterance: Utterance = crud.create_utterance(db, utterance_data, translation.id, speakers_to_features[utter.speaker]['id'])
+        utterance = crud.create_utterance(db, utterance_data, translation.id, speakers_to_features[utter.speaker]['id'])
         sf.write(utterance.get_audio_path(), gen, cfg.tts.sample_rate)
         crud.update_any_db_row(db, utterance, date_completed=datetime.now())
 
@@ -162,11 +160,11 @@ def read(title, lang, raw_text, user_email, check_for_repetitions=False):
 
 def playground_read(text, speaker_name, user_email):
     db: Session = SessionLocal()
-    user: User = crud.get_user_by_email(db, user_email)
+    user = crud.get_user_by_email(db, user_email)
     # support of multiple speakers
     spkr_to_spkr_root = dict()
     for spkr in speaker_name.split('&'):
-        db_speaker: Speaker = crud.get_speaker_by_name(db, spkr, user.id)
+        db_speaker = crud.get_speaker_by_name(db, spkr, user.id)
         if not db_speaker:
             raise Exception(f"Speaker {spkr} doesn't exists. Add it first")
         spkr_to_spkr_root[db_speaker.name] = db_speaker.get_speaker_data_root().parent
@@ -191,17 +189,17 @@ def playground_read(text, speaker_name, user_email):
 
 def load_translation(cross_project_name: str, lang: str, user_email: str):
     db = SessionLocal()
-    user: User = crud.get_user_by_email(db, user_email)
-    translation_project: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
+    user = crud.get_user_by_email(db, user_email)
+    translation_project = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
     speakears = get_speakers(user_email, cross_project_name)
     return translation_project.text, speakears
 
 
 def load(cross_project_name: str, lang: str, user_email: str, from_idx: int, score_threshold=None):
     db = SessionLocal()
-    user: User = crud.get_user_by_email(db, user_email)
+    user = crud.get_user_by_email(db, user_email)
 
-    project: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
+    project = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
     if not project:
         raise Exception(f"no such project {cross_project_name}. Provide valid project title")
     all_utterances = project.utterances
@@ -244,17 +242,17 @@ def load(cross_project_name: str, lang: str, user_email: str, from_idx: int, sco
 
 def reread(cross_project_name, lang, text, utterance_idx, speaker_name, user_email):
     db: Session = SessionLocal()
-    user: User = crud.get_user_by_email(db, user_email)
+    user = crud.get_user_by_email(db, user_email)
 
-    translation: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
+    translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
     if not translation:
         raise Exception(f"Project {cross_project_name} doesn't exists! "
                         f"Normally this shouldn't happen")
-    new_speaker: Speaker = crud.get_speaker_by_name(db, speaker_name, translation.cross_project_id)
+    new_speaker = crud.get_speaker_by_name(db, speaker_name, translation.cross_project_id)
     if not new_speaker:
         raise Exception(f"Speaker {speaker_name} doesn't exists. Add it first")
 
-    utterance: Utterance = crud.get_utterance(db, utterance_idx, translation.id)
+    utterance = crud.get_utterance(db, utterance_idx, translation.id)
     if not utterance:
         raise Exception(f"Something went wrong, Utterance {utterance_idx} doesn't exists. "
                         f"Normally this shouldn't happen")
@@ -281,21 +279,20 @@ def reread(cross_project_name, lang, text, utterance_idx, speaker_name, user_ema
 
 def combine(cross_project_name, lang, user_email, load_duration_sec=120):
     db = SessionLocal()
-    user: User = crud.get_user_by_email(db, user_email)
+    user = crud.get_user_by_email(db, user_email)
 
-    project: Translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
+    project = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
     if not project:
         raise Exception(f"no such project {cross_project_name}. Provide valid project title")
 
-    utterances: list[Utterance] = project.utterances
-    combined_dir = utterances[0].get_audio_path().parent.joinpath('combined')
+    combined_dir = project.utterances[0].get_audio_path().parent.joinpath('combined')
     combined_dir.mkdir(exist_ok=True)
 
-    unique_speakers = set([utter.speaker_id for utter in utterances])
+    unique_speakers = set([utter.speaker_id for utter in project.utterances])
     project_audio_tracks = defaultdict(list)
     metadata = []
     start_sec = 0
-    for utterance in utterances:
+    for utterance in project.utterances:
         utter_audio, sample_rate = sf.read(utterance.get_audio_path())
 
         assert utter_audio.ndim == 1
@@ -329,18 +326,7 @@ def combine(cross_project_name, lang, user_email, load_duration_sec=120):
     combined_wav_path = combined_dir.joinpath(f'{project.cross_project.title}.wav')
 
     sf.write(combined_wav_path, combined_waveform, cfg.tts.sample_rate)
-
-    ffmpeg_path = shutil.which('ffmpeg')
-    res = subprocess.run([
-        f"{ffmpeg_path}",
-        "-hide_banner",
-        "-loglevel", "error",
-        "-i", f"{combined_wav_path}",
-        "-ab", "320k",
-        f"{combined_wav_path.with_suffix('.mp3')}"],
-        check=True,
-        # stdout=subprocess.DEVNULL,
-    )
+    res = convert_wav_to_mp3_ffmpeg(combined_wav_path, combined_wav_path.with_suffix('.mp3'))
 
     with open(combined_dir.joinpath('metadata.json'), 'w') as fd:
         json.dump(metadata, fd)

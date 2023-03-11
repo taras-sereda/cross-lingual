@@ -46,18 +46,32 @@ def extract_video_id(youtube_link):
         return None
 
 
-def extract_and_resample_audio_ffmpeg(in_media_path: Path, out_media_path: Path, out_sample_rate: int):
+def convert_wav_to_mp3_ffmpeg(in_path: Path, out_path: Path):
+    res = subprocess.run([
+        f"{ffmpeg_path}",
+        "-hide_banner",
+        "-loglevel", "error",
+        "-i", f"{in_path}",
+        "-ab", "320k",
+        f"{out_path}"],
+        check=True,
+        # stdout=subprocess.DEVNULL,
+    )
+    return res
+
+
+def extract_and_resample_audio_ffmpeg(in_path: Path, out_path: Path, out_sample_rate: int):
     # command = f"{ffmpeg_path} -i {media_path} -ac 1 -ar 16000 {raw_media_path}"
     # print(os.environ.get('PATH'))
     res = subprocess.run([
         f"{ffmpeg_path}",
         "-hide_banner",
         "-loglevel", "error",
-        "-i", f"{in_media_path}",
+        "-i", f"{in_path}",
         "-ac", "1",
         "-ar", f"{out_sample_rate}",
         # "-acodec", f"pcm_s16le",
-        f"{out_media_path}"],
+        f"{out_path}"],
         check=True,
         # stdout=subprocess.DEVNULL,
     )

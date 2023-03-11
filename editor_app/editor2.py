@@ -1,25 +1,27 @@
 import gradio as gr
 
-from editor_app import cfg, example_text, example_voice_sample_path, html_menu
-from editor_app.tts import add_speaker, get_speakers, read, playground_read, reread, load, combine, get_cross_projects, load_translation
+from editor_app import cfg, html_menu
+from editor_app.tts import add_speaker, read, playground_read, reread, load, combine, get_cross_projects, load_translation
 
 with gr.Blocks() as submitter:
     with gr.Row() as row0:
         with gr.Column(scale=1) as col0:
             menu = gr.HTML(html_menu)
             email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
+            user_projects = gr.Dataframe(label='user projects')
+
             reference_audio = gr.Files(label='reference audio', file_types=['audio'])
-            speaker_name = gr.Textbox(label='Speaker name', placeholder='Enter speaker name, allowed symbols: lower case letters, numbers, and _')
+            speaker_name = gr.Textbox(label='Speaker name', placeholder="Enter speaker name, allowed symbols: "
+                                                                        "lower case letters, numbers, and _")
             add_speaker_button = gr.Button('Add speaker')
             errors = gr.Textbox(label='error messages')
             speakers = gr.Dataframe(label='speakers')
-            user_projects = gr.Dataframe(label='user projects')
 
             add_speaker_button.click(add_speaker, inputs=[reference_audio, speaker_name, email], outputs=[errors])
 
         with gr.Column(scale=1) as col1:
             title = gr.Text(label='Title', placeholder="enter project title")
-            lang = gr.Text(label='Lang')
+            lang = gr.Text(label='Lang', value="EN-US")
             text = gr.Text(label='Text')
             button = gr.Button(value='Go!', variant='primary')
             load_translation_button = gr.Button('Load')
@@ -46,11 +48,6 @@ with gr.Blocks() as submitter:
         button.click(fn=read, inputs=[title, lang, text, email], outputs=[])
         load_translation_button.click(load_translation, inputs=[title, lang, email], outputs=[text, speakers])
 
-    gr.Markdown("Text examples")
-    gr.Examples([example_text], [text])
-    gr.Markdown("Audio examples")
-    gr.Examples([example_voice_sample_path], [reference_audio])
-
     submitter.load(get_cross_projects, inputs=[email], outputs=[user_projects])
 
 
@@ -59,12 +56,13 @@ with gr.Blocks() as editor:
         with gr.Column(scale=1) as editor_col0:
             menu = gr.HTML(html_menu)
             email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
-            speakers = gr.Dataframe(label='speakers', col_count=1)
             user_projects = gr.Dataframe(label='projects')
+
+            speakers = gr.Dataframe(label='speakers', col_count=1)
 
             with gr.Row() as proj_row:
                 title = gr.Text(label='Title', placeholder="enter project title")
-                lang = gr.Text(label='Lang')
+                lang = gr.Text(label='Lang', value="EN-US")
 
             utter_from_idx = gr.Number(label='utterance start index', value=0, precision=0)
             score_slider = gr.Slider(0, 1.0, label='min utterance score')
