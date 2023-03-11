@@ -1,16 +1,47 @@
 import os
+import re
 import shutil
 import subprocess
 import uuid
 from pathlib import Path
 from urllib.parse import urlparse
 
+import ffmpeg
 import requests
 from pytube import YouTube
 
 ffmpeg_path = shutil.which('ffmpeg')
 
-import re
+
+def media_has_video_steam(media_path: Path) -> bool:
+    probe = ffmpeg.probe(media_path)
+    video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
+    return video_stream is not None
+
+
+def mux_video_audio(video_path: Path, audio_path: Path, output_path: str):
+    """Maps the video stream from one file and the audio stream from another file
+       and saves the output to a new file using ffmpeg.
+    Raises:
+        ValueError: If the video and audio files have incompatible codecs.
+
+    """
+    # Use ffmpeg to get the streams from the video and audio files
+    video = ffmpeg.input(video_path)
+    audio = ffmpeg.input(audio_path)
+
+    # Map the video and audio streams to the output file
+    output = ffmpeg.output(video.video, audio.audio, output_path)
+
+    try:
+        # Run the ffmpeg command to create the output file
+        ffmpeg.run(output)
+    except ffmpeg.Error as e:
+        # Raise a ValueError if the video and audio files have incompatible codecs
+        if 'Invalid data found when processing input' in str(e):
+            raise ValueError('The video and audio files have incompatible codecs')
+        else:
+            raise e
 
 
 def get_youtube_embed_code(video_id):
@@ -53,7 +84,7 @@ def convert_wav_to_mp3_ffmpeg(in_path: Path, out_path: Path):
         "-loglevel", "error",
         "-i", f"{in_path}",
         "-ab", "320k",
-        f"{out_path}"],
+        f"{out_path}", "-y"],
         check=True,
         # stdout=subprocess.DEVNULL,
     )

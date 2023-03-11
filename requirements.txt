@@ -18,3 +18,4 @@ aiohttp
 datasets
 speechbrain
 pytube
+ffmpeg-python

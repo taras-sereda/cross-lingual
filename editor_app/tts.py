@@ -15,7 +15,7 @@ from tortoise.utils.audio import load_voices, load_audio
 from tortoise.utils.text import split_and_recombine_text
 from tortoise.utils.wav2vec_alignment import Wav2VecAlignment
 
-from media_utils import convert_wav_to_mp3_ffmpeg
+from media_utils import convert_wav_to_mp3_ffmpeg, media_has_video_steam, mux_video_audio
 from utils import compute_string_similarity, split_on_raw_utterances, raw_speaker_re, time_re, normalize_text, find_single_repetition
 from datatypes import RawUtterance
 from . import schemas, crud, cfg
@@ -280,7 +280,7 @@ def reread(cross_project_name, lang, text, utterance_idx, speaker_name, user_ema
 def combine(cross_project_name, lang, user_email, load_duration_sec=120):
     db = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
-
+    cross_proj = crud.get_cross_project_by_title(db, cross_project_name, user.id)
     project = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
     if not project:
         raise Exception(f"no such project {cross_project_name}. Provide valid project title")
@@ -333,17 +333,15 @@ def combine(cross_project_name, lang, user_email, load_duration_sec=120):
 
     db.close()
 
-    # there is no need it sending gigabytes of data to front-end,
-    # so loading load_duration_sec amount is sufficient.
-    tracks = []
-    for track_path in combined_dir.glob("combined_*.wav"):
-        start = int(0 * cfg.tts.sample_rate)
-        stop = start + int(load_duration_sec * cfg.tts.sample_rate)
-        combined_wav, sample_rate = sf.read(track_path, start=start, stop=stop)
-        tracks.append(combined_wav)
-    wav_overlayed = np.array(tracks).mean(axis=0)
+    src_media_path = cross_proj.get_media_path()
+    if media_has_video_steam(src_media_path):
+        mux_media_path = src_media_path.with_suffix('.output.mp4')
+        mux_video_audio(src_media_path, combined_wav_path, str(mux_media_path))
+        res = [gr.Video.update(value=str(mux_media_path), visible=True), gr.Audio.update(visible=False)]
+    else:
+        res = [gr.Video.update(visible=False), gr.Audio.update(value=str(combined_wav_path), visible=True)]
 
-    return gr.Audio.update(value=(cfg.tts.sample_rate, wav_overlayed), visible=True)
+    return res
 
 
 def time_to_sec(time: str) -> float:
