@@ -1,4 +1,5 @@
 import tempfile
+from collections import Counter
 
 import gradio as gr
 import soundfile as sf
@@ -20,11 +21,19 @@ DEMO_DURATION = 120  # duration of demo in seconds
 AD_OFFSET = 120  # approx ad offset
 
 
-def detect_speakers(input_media, media_link, project_name, user_email, options: list):
-
+def transcribe(input_media, media_link, project_name, language: str, user_email: str, options: list):
+    """Transcribe input media with speaker diarization, resulting transcript will be in form:
+    [ HH:MM:SS.sss --> HH:MM:SS.sss ]
+    {SPEAKER}
+    Transcribed text
+    """
     demo_run, save_speakers = False, False
     if 'Demo Run' in options:
         demo_run = True
+    if 'Save speakers' in options:
+        save_speakers = True
+    if len(language) == 0:
+        language = None
 
     db: Session = SessionLocal()
     user: User = crud.get_user_by_email(db, user_email)
@@ -39,7 +48,6 @@ def detect_speakers(input_media, media_link, project_name, user_email, options: 
     elif input_media is not None:
         tmp_media_path = input_media.name
         name = tmp_media_path.split('/')[-1]
-
     else:
         raise Exception(f"either media_link or media file should be provided")
 
@@ -49,31 +57,70 @@ def detect_speakers(input_media, media_link, project_name, user_email, options: 
     cross_project_data = schemas.CrossProjectCreate(title=project_name, media_name=name)
     cross_project = crud.create_cross_project(db, cross_project_data, user.id)
     media_path = shutil.copy(tmp_media_path, cross_project.get_media_path())
-    raw_wav_path = cross_project.get_raw_wav_path(sample_rate=cfg.stt.sample_rate)
+    wav_16k_path = cross_project.get_raw_wav_path(sample_rate=cfg.stt.sample_rate)
+    wav_22k_path = cross_project.get_raw_wav_path(sample_rate=cfg.tts.spkr_emb_sample_rate)
 
-    res0 = extract_and_resample_audio_ffmpeg(media_path, raw_wav_path, cfg.stt.sample_rate)
-    res1 = extract_and_resample_audio_ffmpeg(media_path, cross_project.get_raw_wav_path(sample_rate=22050), 22050)
+    res0 = extract_and_resample_audio_ffmpeg(media_path, wav_16k_path, cfg.stt.sample_rate)
+    res1 = extract_and_resample_audio_ffmpeg(media_path, wav_22k_path, cfg.tts.spkr_emb_sample_rate)
 
-    waveform, sample_rate = gradio_read_audio_data(raw_wav_path)
+    waveform_16k, _ = gradio_read_audio_data(wav_16k_path)
+    waveform_22k, _ = gradio_read_audio_data(wav_22k_path)
+
     if demo_run:
-        waveform = waveform[:(10*60*cfg.stt.sample_rate)]
+        waveform_16k = waveform_16k[:(10*60*cfg.stt.sample_rate)]
+        waveform_22k = waveform_22k[:(10*60*cfg.tts.spkr_emb_sample_rate)]
+        # unset ad offset for projects shorter than offset
+        if len(waveform_16k) / cfg.stt.sample_rate < AD_OFFSET:
+            ad_offset = -1
+        else:
+            ad_offset = AD_OFFSET
 
-    diarization = diarization_model({'waveform': waveform.unsqueeze(0), 'sample_rate': sample_rate})
+    diarization = diarization_model({'waveform': waveform_16k.unsqueeze(0), 'sample_rate': cfg.stt.sample_rate})
+    demo_duration = 0
+    res_text, ffmpeg_str = '', ''
+    segments, speaker_samples = [], dict()
+    # in case of unspecified input language, utterances can have various languages.
+    # this is a reason for using a counter
+    detected_languages = Counter()
 
-    speakers = set(diarization.labels())
-    speaker_samples = dict()
+    for idx, (seg, _, speaker) in enumerate(diarization.itertracks(yield_label=True)):
 
-    for seg, lbl, spkr in diarization.itertracks(yield_label=True):
-        if spkr not in speaker_samples:
-            speaker_samples[spkr] = seg
-        if len(speakers) == len(speaker_samples):
-            break
-    res = ''
-    for spkr in sorted(speakers):
-        row = f'{spkr}: {speaker_samples[spkr]}\n'
-        res += row
+        if demo_run:
+            if seg.start < ad_offset:
+                continue
+        speaker = speaker.lower()
+        seg_wav_16k = waveform_16k[int(seg.start * cfg.stt.sample_rate): int(seg.end * cfg.stt.sample_rate)]
+        seg_wav_22k = waveform_22k[int(seg.start * cfg.tts.spkr_emb_sample_rate): int(seg.end * cfg.tts.spkr_emb_sample_rate)]
+        seg_res = stt_model.transcribe(seg_wav_16k, language=language)
+        text = seg_res['text']
+        lang = seg_res['language']
+        segments.append([seg, speaker, text, lang])
+        res_text += f"{seg}\n{{{speaker}}}\n{text}\n\n"
+        detected_languages[lang] += 1
 
-    results = [res]
+        if save_speakers:
+            seg_name = f'output_{idx:03}.wav'
+            db_spkr = crud.get_speaker_by_name(db, speaker, cross_project.id)
+            if not db_spkr:
+                db_spkr = crud.create_speaker(db, speaker, cross_project.id)
+            seg_path = db_spkr.get_speaker_data_root().joinpath(seg_name)
+            sf.write(seg_path, seg_wav_22k, cfg.tts.spkr_emb_sample_rate)
+            ffmpeg_str += f' -ss {seg.start} -to {seg.end} -c copy {seg_name}'
+
+        if speaker not in speaker_samples:
+            speaker_samples[speaker] = seg
+
+        if demo_run:
+            demo_duration += (seg.end - seg.start)
+            if demo_duration >= DEMO_DURATION:
+                break
+
+    detected_spkrs = ''
+    for spkr, seg_duration in speaker_samples.items():
+        row = f'{spkr}: {seg_duration}\n'
+        detected_spkrs += row
+
+    results = [detected_spkrs]
     if media_link is not None:
         youtube_id = extract_video_id(media_link)
         iframe_val = get_youtube_embed_code(youtube_id)
@@ -83,96 +130,13 @@ def detect_speakers(input_media, media_link, project_name, user_email, options: 
         iframe_val = get_youtube_embed_code("rgOylRHp1gM")
         results.append(gr.HTML.update(value=iframe_val))
 
-    return results
-
-
-def transcribe(project_name, language: str, named_speakers: str, user_email: str, options: list):
-    """Transcribe input media with speaker diarization, resulting transcript will be in form:
-    [ HH:MM:SS.sss --> HH:MM:SS.sss ]
-    {SPEAKER}
-    Transcribed text
-    """
-    demo_run, save_speakers = False, False
-    if 'Demo Run' in options:
-        demo_run = True
-    if 'Save speakers' in options:
-        save_speakers = True
-
-    db: Session = SessionLocal()
-    user: User = crud.get_user_by_email(db, user_email)
-
-    cross_project: CrossProject = crud.get_cross_project_by_title(db, project_name, user.id)
-    if cross_project is None:
-        raise Exception(f"CrossProject {project_name} doesn't exists")
-
-    if len(language) == 0:
-        language = None
-
-    waveform, sample_rate = gradio_read_audio_data(cross_project.get_raw_wav_path(sample_rate=cfg.stt.sample_rate))
-    waveform_22k, _ = gradio_read_audio_data(cross_project.get_raw_wav_path(sample_rate=22050))
-    if demo_run:
-        waveform = waveform[:(10*60*cfg.stt.sample_rate)]
-        waveform_22k = waveform_22k[:(10*60*22050)]
-    diarization = diarization_model({'waveform': waveform.unsqueeze(0), 'sample_rate': sample_rate})
-
-    if named_speakers:
-        speakers = []
-        for speaker in named_speakers.lower().split(','):
-            spkr = not_raw_speaker_re.sub('', speaker)
-            speakers.append(spkr)
-
-        assert len(diarization.labels()) == len(speakers)
-        diarization = diarization.rename_labels(generator=iter(speakers), copy=False)
-
-        if save_speakers:
-            db_spkrs = []
-            for spkr in speakers:
-                db_spkr = crud.get_speaker_by_name(db, spkr, cross_project.id)
-                if not db_spkr:
-                    db_spkrs.append(crud.create_speaker(db, spkr, cross_project.id))
-                else:
-                    db_spkrs.append(db_spkr)
-
-    char_count = 0
-    res = ''
-    segments = []
-    ffmpeg_str = ''
-    demo_duration = 0
-    for idx, (seg, _, speaker) in enumerate(diarization.itertracks(yield_label=True)):
-
-        if demo_run:
-            if seg.start < AD_OFFSET:
-                continue
-
-        seg_wav = waveform[int(seg.start * cfg.stt.sample_rate): int(seg.end * cfg.stt.sample_rate)]
-        seg_wav_22k = waveform_22k[int(seg.start * 22050): int(seg.end * 22050)]
-        seg_res = stt_model.transcribe(seg_wav, language=language)
-        text = seg_res['text']
-        lang = seg_res['language']
-        segments.append([seg, speaker, text, lang])
-        res += f"{seg}\n{{{speaker}}}\n{text}\n\n"
-        char_count += len(seg_res['text'])
-        seg_name = f'output_{idx:03}.wav'
-
-        # seg_path = cross_project.get_data_root().joinpath(seg_name)
-        # sf.write(seg_path, seg_wav, cfg.stt.sample_rate)
-
-        if named_speakers and save_speakers:
-            db_spkr = crud.get_speaker_by_name(db, speaker, user.id)
-            seg_path = db_spkr.get_speaker_data_root().joinpath(seg_name)
-            sf.write(seg_path, seg_wav_22k, 22050)
-
-        if demo_run:
-            demo_duration += (seg.end - seg.start)
-            if demo_duration >= DEMO_DURATION:
-                break
-
-        ffmpeg_str += f' -ss {seg.start} -to {seg.end} -c copy {seg_name}'
     # quick and dirty way to cut audio on pieces with ffmpeg.
     print(ffmpeg_str)
-    detected_lang = segments[0][-1]
+    results.append(res_text)
+    # use most common language as a project lvl language
+    results.append(detected_languages.most_common(1)[0][0])
 
-    return res, detected_lang, char_count
+    return results
 
 
 def save_transcript(project_name, text, lang, user_email):
@@ -205,28 +169,22 @@ with gr.Blocks() as transcriber:
             media_link = gr.Text(label='link', placeholder='Link to youtube video, or any audio file')
             iframe = gr.HTML(label='youtube video')
             file = gr.File(label='input media')
-            detect_spkr_button = gr.Button(value='Detect speakers')
             detected_speakers = gr.Text(label='Ordinal speakers')
-            named_speakers = gr.Text(label='Named speakers')
             input_lang = gr.Text(label='input language')
 
         with gr.Column(scale=1) as col1:
             text = gr.Text(label='Text transcription', interactive=True)
             detected_lang = gr.Text(label='Detected language')
-            num_chars = gr.Number(label='Number of characters')
             transcribe_button = gr.Button(value='Transcribe!')
             options = gr.CheckboxGroup(choices=['Demo Run', 'Save speakers'], value=['Demo Run', 'Save speakers'])
             save_transcript_button = gr.Button(value='save')
             BASENJI_PIC = 'https://www.akc.org/wp-content/uploads/2017/11/Basenji-On-White-01.jpg'
             success_image = gr.Image(value=BASENJI_PIC, visible=False)
 
-        detect_spkr_button.click(detect_speakers,
-                                 inputs=[file, media_link, project_name, email, options],
-                                 outputs=[detected_speakers, iframe])
         transcribe_button.click(
             transcribe,
-            inputs=[project_name, input_lang, named_speakers, email, options],
-            outputs=[text, detected_lang, num_chars])
+            inputs=[file, media_link, project_name, input_lang, email, options],
+            outputs=[detected_speakers, iframe, text, detected_lang])
         save_transcript_button.click(
             save_transcript,
             inputs=[project_name, text, detected_lang, email],
