@@ -37,7 +37,9 @@ CxGs9E-QwEA.en-US.vtt
 6. Launching from project root directory:
 
 - fastAPI: `uvicorn editor_app.main:app --reload`
+  add --host 0.0.0.0 to make app available to LAN.
 - gradio: `gradio editor_app/editor2.py editor`
+
 
 7. combine audio and video: `ffmpeg -i demo_3PVQ0rN_jp4.webm -i demo_3PVQ0rN_jp4_english_shortened.wav -map 0:v -map 1:a  demo_3PVQ0rN_jp4_english.mp4`
 
