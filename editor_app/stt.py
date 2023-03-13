@@ -1,13 +1,175 @@
+import shutil
+import tempfile
+import uuid
+from collections import Counter
 from datetime import datetime
 
+import gradio as gr
+import soundfile as sf
 import whisper
+from pyannote.audio import Pipeline
+from sqlalchemy.orm import Session
 
+from media_utils import download_youtube_media, extract_and_resample_audio_ffmpeg, extract_video_id, \
+    get_youtube_embed_code, media_has_video_steam
 from utils import compute_string_similarity
+from utils import gradio_read_audio_data
 from . import cfg
 from . import schemas, crud
+from .database import SessionLocal
 from .models import Utterance
 
 stt_model = whisper.load_model(cfg.stt.model_size)
+diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_auth_token=cfg.diarization.auth_token)
+
+DEMO_DURATION = 120  # duration of demo in seconds
+AD_OFFSET = 120  # approx ad offset
+
+
+def transcribe(input_media, media_link, project_name: str, language: str, user_email: str, options: list):
+    """Transcribe input media with speaker diarization, resulting transcript will be in form:
+    [ HH:MM:SS.sss --> HH:MM:SS.sss ]
+    {SPEAKER}
+    Transcribed text
+    """
+    assert len(project_name) > 0, "Project name can't be empty"
+
+    demo_run, save_speakers = False, False
+    if 'Demo Run' in options:
+        demo_run = True
+    if 'Save speakers' in options:
+        save_speakers = True
+    if len(language) == 0:
+        language = None
+
+    db: Session = SessionLocal()
+    user = crud.get_user_by_email(db, user_email)
+
+    cross_project = crud.get_cross_project_by_title(db, project_name, user.id, ensure_exists=False)
+    if cross_project is not None:
+        raise Exception(f"CrossProject {project_name} already exists, pick another name")
+    if len(media_link) > 0:
+        tmp_media_path = download_youtube_media(media_link, tempfile.gettempdir())
+        name = tmp_media_path.name
+    elif input_media is not None:
+        tmp_media_path = input_media.name
+        name = str(uuid.uuid4())
+    else:
+        raise Exception(f"either media_link or media file should be provided")
+
+    # TODO refactor, I need to have media path before I create crosslingual db entry.
+    # TODO Add more checks and atomicity.
+    # TODO I don't want to manually cleanup disk and database if something went wrong while project creation.
+
+    cross_project_data = schemas.CrossProjectCreate(title=project_name, media_name=name)
+    cross_project = crud.create_cross_project(db, cross_project_data, user.id)
+    media_path = shutil.copy(tmp_media_path, cross_project.get_media_path())
+    wav_16k_path = cross_project.get_raw_wav_path(sample_rate=cfg.stt.sample_rate)
+    wav_22k_path = cross_project.get_raw_wav_path(sample_rate=cfg.tts.spkr_emb_sample_rate)
+
+    res0 = extract_and_resample_audio_ffmpeg(media_path, wav_16k_path, cfg.stt.sample_rate)
+    res1 = extract_and_resample_audio_ffmpeg(media_path, wav_22k_path, cfg.tts.spkr_emb_sample_rate)
+
+    waveform_16k, _ = gradio_read_audio_data(wav_16k_path)
+    waveform_22k, _ = gradio_read_audio_data(wav_22k_path)
+
+    if demo_run:
+        waveform_16k = waveform_16k[:(10*60*cfg.stt.sample_rate)]
+        waveform_22k = waveform_22k[:(10*60*cfg.tts.spkr_emb_sample_rate)]
+        # unset ad offset for projects shorter than offset
+        if len(waveform_16k) / cfg.stt.sample_rate < AD_OFFSET:
+            ad_offset = -1
+        else:
+            ad_offset = AD_OFFSET
+
+    diarization = diarization_model({'waveform': waveform_16k.unsqueeze(0), 'sample_rate': cfg.stt.sample_rate})
+    demo_duration = 0
+    res_text, ffmpeg_str = '', ''
+    segments, speaker_samples = [], dict()
+    # in case of unspecified input language, utterances can have various languages.
+    # this is a reason for using a counter
+    detected_languages = Counter()
+
+    for idx, (seg, _, speaker) in enumerate(diarization.itertracks(yield_label=True)):
+
+        if demo_run:
+            if seg.start < ad_offset:
+                continue
+        speaker = speaker.lower()
+        seg_wav_16k = waveform_16k[int(seg.start * cfg.stt.sample_rate): int(seg.end * cfg.stt.sample_rate)]
+        seg_wav_22k = waveform_22k[int(seg.start * cfg.tts.spkr_emb_sample_rate): int(seg.end * cfg.tts.spkr_emb_sample_rate)]
+        seg_res = stt_model.transcribe(seg_wav_16k, language=language)
+        text = seg_res['text']
+        lang = seg_res['language']
+        segments.append([seg, speaker, text, lang])
+        res_text += f"{seg}\n{{{speaker}}}\n{text}\n\n"
+        detected_languages[lang] += 1
+
+        if save_speakers:
+            seg_name = f'output_{idx:03}.wav'
+            db_spkr = crud.get_speaker_by_name(db, speaker, cross_project.id)
+            if not db_spkr:
+                db_spkr = crud.create_speaker(db, speaker, cross_project.id)
+            seg_path = db_spkr.get_speaker_data_root().joinpath(seg_name)
+            sf.write(seg_path, seg_wav_22k, cfg.tts.spkr_emb_sample_rate)
+            ffmpeg_str += f' -ss {seg.start} -to {seg.end} -c copy {seg_name}'
+
+        if speaker not in speaker_samples:
+            speaker_samples[speaker] = seg
+
+        if demo_run:
+            demo_duration += (seg.end - seg.start)
+            if demo_duration >= DEMO_DURATION:
+                break
+
+    # quick and dirty way to cut audio on pieces with ffmpeg.
+    print(ffmpeg_str)
+    # use most common language as a project lvl language
+    detected_lang = detected_languages.most_common(1)[0][0]
+
+    results = [res_text, detected_lang]
+
+    detected_spkrs = ''
+    for spkr, seg_duration in speaker_samples.items():
+        row = f'{spkr}: {seg_duration}\n'
+        detected_spkrs += row
+    results.append(detected_spkrs)
+
+    if len(media_link) > 0:
+        youtube_id = extract_video_id(media_link)
+        iframe_val = get_youtube_embed_code(youtube_id)
+        results.append(gr.HTML.update(value=iframe_val))
+        results.append(gr.Audio.update(visible=False))
+        results.append(gr.Video.update(visible=False))
+    else:
+        results.append(gr.HTML.update(visible=False))
+        media_path = cross_project.get_media_path()
+        if media_has_video_steam(media_path):
+            results.append(gr.Audio.update(visible=False))
+            results.append(gr.Video.update(visible=True, value=str(media_path)))
+        else:
+            results.append(gr.Audio.update(visible=True, value=str(media_path)))
+            results.append(gr.Video.update(visible=False))
+
+    return results
+
+
+def save_transcript(project_name, text, lang, user_email):
+    db: Session = SessionLocal()
+    user = crud.get_user_by_email(db, user_email)
+    cross_project = crud.get_cross_project_by_title(db, project_name, user.id, ensure_exists=True)
+
+    if len(cross_project.transcript) > 0:
+        print('Transcript already saved!!!')
+        return gr.Image.update(visible=True)
+
+    transcript_data = schemas.TranscriptCreate(text=text, lang=lang)
+    transcript_db = crud.create_transcript(db, transcript_data, cross_project.id)
+
+    with open(transcript_db.get_path(), 'w') as f:
+        f.write(text)
+
+    return gr.Image.update(visible=True)
 
 
 def transcribe_utterance(utterance: Utterance, language=None):
