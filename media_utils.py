@@ -12,6 +12,8 @@ from pytube import YouTube
 
 ffmpeg_path = shutil.which('ffmpeg')
 
+extra_length_sec = 2
+
 
 def media_has_video_steam(media_path: Path) -> bool:
     probe = ffmpeg.probe(media_path)
@@ -19,7 +21,13 @@ def media_has_video_steam(media_path: Path) -> bool:
     return video_stream is not None
 
 
-def mux_video_audio(video_path: Path, audio_path: Path, output_path: str):
+def get_stream_duration(media_path, stream_type='audio'):
+    probe = ffmpeg.probe(media_path)
+    stream = next((stream for stream in probe['streams'] if stream['codec_type'] == stream_type), None)
+    return round(float(stream['duration'])) if stream is not None else None
+
+
+def mux_video_audio(video_path: Path, audio_path: Path, output_path: str, video_offset_sec: int):
     """Maps the video stream from one file and the audio stream from another file
        and saves the output to a new file using ffmpeg.
     Raises:
@@ -27,11 +35,12 @@ def mux_video_audio(video_path: Path, audio_path: Path, output_path: str):
 
     """
     # Use ffmpeg to get the streams from the video and audio files
-    video = ffmpeg.input(video_path)
+    audio_duration = get_stream_duration(audio_path)
+    video = ffmpeg.input(video_path, ss=video_offset_sec, t=audio_duration+extra_length_sec)
     audio = ffmpeg.input(audio_path)
 
     # Map the video and audio streams to the output file
-    output = ffmpeg.output(video.video, audio.audio, output_path)
+    output = ffmpeg.output(video.video, audio.audio, output_path).overwrite_output()
 
     try:
         # Run the ffmpeg command to create the output file

@@ -277,7 +277,7 @@ def reread(cross_project_name, lang, text, utterance_idx, speaker_name, user_ema
     return (cfg.tts.sample_rate, gen), speaker_name, score
 
 
-def combine(cross_project_name, lang, user_email, load_duration_sec=120):
+def combine(cross_project_name, lang, user_email):
     db = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
     cross_proj = crud.get_cross_project_by_title(db, cross_project_name, user.id)
@@ -313,6 +313,9 @@ def combine(cross_project_name, lang, user_email, load_duration_sec=120):
         })
         start_sec = end_sec
 
+    with open(combined_dir.joinpath('metadata.json'), 'w') as fd:
+        json.dump(metadata, fd)
+
     for k, v in project_audio_tracks.items():
         sf.write(combined_dir.joinpath(f'combined_{k}.wav'), v, cfg.tts.sample_rate)
 
@@ -324,19 +327,18 @@ def combine(cross_project_name, lang, user_email, load_duration_sec=120):
     # normalize
     combined_waveform /= np.abs(combined_waveform).max()
     combined_wav_path = combined_dir.joinpath(f'{project.cross_project.title}.wav')
-
     sf.write(combined_wav_path, combined_waveform, cfg.tts.sample_rate)
-    res = convert_wav_to_mp3_ffmpeg(combined_wav_path, combined_wav_path.with_suffix('.mp3'))
 
-    with open(combined_dir.joinpath('metadata.json'), 'w') as fd:
-        json.dump(metadata, fd)
+    res = convert_wav_to_mp3_ffmpeg(combined_wav_path, combined_wav_path.with_suffix('.mp3'))
 
     db.close()
 
     src_media_path = cross_proj.get_media_path()
     if media_has_video_steam(src_media_path):
+        # sample rate = 1 - will return result in seconds, neat trick:)
+        start_sec = timecode_to_timerange(project.utterances[0].timecode, 1)[0]
         mux_media_path = src_media_path.with_suffix('.output.mp4')
-        mux_video_audio(src_media_path, combined_wav_path, str(mux_media_path))
+        mux_video_audio(src_media_path, combined_wav_path, str(mux_media_path), start_sec)
         res = [gr.Video.update(value=str(mux_media_path), visible=True), gr.Audio.update(visible=False)]
     else:
         res = [gr.Video.update(visible=False), gr.Audio.update(value=str(combined_wav_path), visible=True)]
