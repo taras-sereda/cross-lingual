@@ -8,6 +8,8 @@ cfg = OmegaConf.load(prj_root.joinpath('config.yaml'))
 data_root = prj_root.joinpath(cfg.db.data_root)
 data_root.mkdir(exist_ok=True, parents=True)
 
+BASENJI_PIC = 'https://www.akc.org/wp-content/uploads/2017/11/Basenji-On-White-01.jpg'
+
 if torch.cuda.is_available():
     preset = 'standard'
 else:

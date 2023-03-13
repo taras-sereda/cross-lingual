@@ -1,6 +1,6 @@
 import gradio as gr
 
-from editor_app import cfg, html_menu
+from editor_app import cfg, html_menu, BASENJI_PIC
 from editor_app.stt import transcribe, save_transcript
 from editor_app.tts import get_cross_projects
 
@@ -30,7 +30,6 @@ with gr.Blocks() as transcriber:
             iframe = gr.HTML(label='youtube video')
             audio = gr.Audio(visible=False)
             video = gr.Video(visible=False)
-            BASENJI_PIC = 'https://www.akc.org/wp-content/uploads/2017/11/Basenji-On-White-01.jpg'
             success_image = gr.Image(value=BASENJI_PIC, visible=False)
 
         transcribe_button.click(

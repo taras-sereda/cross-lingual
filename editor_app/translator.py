@@ -4,7 +4,7 @@ import deepl
 import gradio as gr
 from sqlalchemy.orm import Session
 
-from editor_app import cfg, crud, schemas, html_menu
+from editor_app import cfg, crud, schemas, html_menu, BASENJI_PIC
 from editor_app.database import SessionLocal
 from editor_app.tts import get_cross_projects
 from utils import split_on_raw_utterances
@@ -49,44 +49,61 @@ def gradio_translate(project_name, tgt_lang, user_email):
     db: Session = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
     cross_project = crud.get_cross_project_by_title(db, project_name, user.id)
-
     # TODO. ensure one-to-one relationship.
     assert len(cross_project.transcript) == 1
     transcript = cross_project.transcript[0]
-
     translation_db = crud.get_translation_by_title_and_lang(db, project_name, tgt_lang, user.id)
     if translation_db is None:
         translation, num_src_char, num_tgt_char = translate(transcript.text, tgt_lang)
-        translation_data = schemas.TranslationCreate(text=translation, lang=tgt_lang, date_created=datetime.now())
-        translation_db = crud.create_translation(db, translation_data, cross_project.id)
-        with open(translation_db.get_path(), 'w') as f:
-            f.write(translation)
     else:
-        num_src_char = get_num_char(transcript.text)
-        num_tgt_char = get_num_char(translation_db.text)
-        print('translation loaded from db')
+        translation = translation_db.text
 
-    return transcript.text, translation_db.text, num_src_char, num_tgt_char
+    num_src_char = get_num_char(transcript.text)
+    num_tgt_char = get_num_char(translation)
+    return transcript.text, translation, num_src_char, num_tgt_char
+
+
+def save_translation(project_name, text, lang, user_email):
+    db: Session = SessionLocal()
+    user = crud.get_user_by_email(db, user_email)
+    cross_project = crud.get_cross_project_by_title(db, project_name, user.id, ensure_exists=True)
+    translation_db = crud.get_translation_by_title_and_lang(db, project_name, lang, user.id)
+
+    if translation_db is None:
+        translation_data = schemas.TranslationCreate(text=text, lang=lang, date_created=datetime.now())
+        translation_db = crud.create_translation(db, translation_data, cross_project.id)
+    else:
+        crud.update_any_db_row(db, translation_db, text=text, lang=lang, date_created=datetime.now())
+
+    with open(translation_db.get_path(), 'w') as f:
+        f.write(text)
+
+    num_tgt_char = get_num_char(translation_db.text)
+    return num_tgt_char, gr.Image.update(visible=True)
 
 
 with gr.Blocks() as translator:
     with gr.Row() as row0:
-        with gr.Column(scale=1) as col0:
-            menu = gr.HTML(html_menu)
-            email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
+        with gr.Column(scale=1, variant='panel') as col0:
+            with gr.Row(variant='panel'):
+                menu = gr.HTML(html_menu)
+                email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
             user_projects = gr.Dataframe(label='user projects')
-
-            project_name = gr.Text(label='Project name', placeholder="enter your project name")
+            with gr.Row():
+                project_name = gr.Text(label='Project name', placeholder="enter your project name")
+                tgt_lang = gr.Text(label='Target Language', value='EN-US')
             src_text = gr.Text(label='Text transcription', interactive=True)
-            tgt_lang = gr.Text(label='Target Language', value='EN-US')
+
         with gr.Column(scale=1) as col1:
             tgt_text = gr.Text(label='Text translation', interactive=True)
-            num_src_chars = gr.Number(label='[Source language] Number of characters')
-            num_tgt_chars = gr.Number(label='[Target language] Number of characters')
-            button = gr.Button(value='Go!')
-            button2 = gr.Button(value='Load and go!')
-        button.click(translate, inputs=[src_text, tgt_lang], outputs=[tgt_text, num_src_chars, num_tgt_chars])
-        button2.click(gradio_translate, inputs=[project_name, tgt_lang, email], outputs=[src_text, tgt_text, num_src_chars, num_tgt_chars])
+            with gr.Row():
+                num_src_chars = gr.Number(label='[Source language] Number of characters')
+                num_tgt_chars = gr.Number(label='[Target language] Number of characters')
+            load_button = gr.Button(value='Load and go!')
+            save_button = gr.Button(value='Save')
+            success_image = gr.Image(value=BASENJI_PIC, visible=False)
+        load_button.click(gradio_translate, inputs=[project_name, tgt_lang, email], outputs=[src_text, tgt_text, num_src_chars, num_tgt_chars])
+        save_button.click(save_translation, inputs=[project_name, tgt_text, tgt_lang, email], outputs=[num_tgt_chars, success_image])
 
     translator.load(get_cross_projects, inputs=[email], outputs=[user_projects])
 
