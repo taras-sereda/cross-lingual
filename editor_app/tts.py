@@ -70,7 +70,10 @@ def get_cross_projects(user_email, limit=10) -> pd.DataFrame:
             data['title'] += [proj.title]
             data['lang'] += [translation.lang]
             data['date_completed'] += [translation.date_completed]
-    return pd.DataFrame(data=data).sort_values(by=['date_completed'], ascending=False, na_position='first').head(limit)
+    data = pd.DataFrame(data=data)
+    if len(data) > 0:
+        data = data.sort_values(by=['date_completed'], ascending=False, na_position='first').head(limit)
+    return data
 
 
 def read(title, lang, raw_text, user_email, check_for_repetitions=False):

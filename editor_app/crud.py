@@ -62,10 +62,6 @@ def create_transcript(db: Session, transcript: schemas.TranscriptCreate, cross_p
     return db_transcript
 
 
-def get_transcript_by_title(db: Session, title: str, user_id: int) -> models.Transcript:
-    return db.query(models.CrossProject).filter(and_(models.CrossProject.title == title, models.CrossProject.owner_id == user_id)).first()
-
-
 def create_translation(db: Session, translation: schemas.TranslationCreate, cross_project_id: int) -> models.Translation:
     db_translation = models.Translation(**translation.dict(), cross_project_id=cross_project_id)
     db.add(db_translation)
@@ -75,8 +71,8 @@ def create_translation(db: Session, translation: schemas.TranslationCreate, cros
 
 
 def get_translation_by_title_and_lang(db: Session, title: str, lang: str, user_id: int) -> models.Translation:
-    transcript_db = get_transcript_by_title(db, title, user_id)
-    return db.query(models.Translation).filter(and_(models.Translation.cross_project_id == transcript_db.id,
+    cross_proj_db = get_cross_project_by_title(db, title, user_id)
+    return db.query(models.Translation).filter(and_(models.Translation.cross_project_id == cross_proj_db.id,
                                                     models.Translation.lang == lang,
                                                     )).first()
 
