@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import gradio as gr
 import Levenshtein
 
 from datatypes import RawUtterance
@@ -155,3 +156,9 @@ def gradio_read_audio_data(audio_data: tuple[int, np.ndarray] | str | Path) -> (
     else:
         sample_rate, waveform = audio_data
     return torch.from_numpy(waveform).to(dtype), sample_rate
+
+
+def get_user_from_request(reqeust: gr.Request) -> str:
+    if not reqeust:
+        raise Exception(f"Access denied!")
+    return reqeust.username

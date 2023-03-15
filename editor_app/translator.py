@@ -4,10 +4,10 @@ import deepl
 import gradio as gr
 from sqlalchemy.orm import Session
 
-from editor_app import cfg, crud, schemas, html_menu, BASENJI_PIC
+from editor_app import cfg, crud, schemas, BASENJI_PIC
 from editor_app.database import SessionLocal
 from editor_app.tts import get_cross_projects
-from utils import split_on_raw_utterances
+from utils import split_on_raw_utterances, get_user_from_request
 
 deepl_translator = deepl.Translator(cfg.translation.auth_token)
 
@@ -45,7 +45,8 @@ def get_num_char(text: str):
     return num_char
 
 
-def gradio_translate(project_name, tgt_lang, user_email):
+def gradio_translate(project_name, tgt_lang, request: gr.Request):
+    user_email = get_user_from_request(request)
     db: Session = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
     cross_project = crud.get_cross_project_by_title(db, project_name, user.id)
@@ -63,7 +64,8 @@ def gradio_translate(project_name, tgt_lang, user_email):
     return transcript.text, translation, num_src_char, num_tgt_char
 
 
-def save_translation(project_name, text, lang, user_email):
+def save_translation(project_name, text, lang, request: gr.Request):
+    user_email = get_user_from_request(request)
     db: Session = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
     cross_project = crud.get_cross_project_by_title(db, project_name, user.id, ensure_exists=True)
@@ -85,9 +87,6 @@ def save_translation(project_name, text, lang, user_email):
 with gr.Blocks() as translator:
     with gr.Row() as row0:
         with gr.Column(scale=1, variant='panel') as col0:
-            with gr.Row(variant='panel'):
-                menu = gr.HTML(html_menu)
-                email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
             user_projects = gr.Dataframe(label='user projects')
             with gr.Row():
                 project_name = gr.Text(label='Project name', placeholder="enter your project name")
@@ -102,10 +101,10 @@ with gr.Blocks() as translator:
             load_button = gr.Button(value='Load and go!')
             save_button = gr.Button(value='Save')
             success_image = gr.Image(value=BASENJI_PIC, visible=False)
-        load_button.click(gradio_translate, inputs=[project_name, tgt_lang, email], outputs=[src_text, tgt_text, num_src_chars, num_tgt_chars])
-        save_button.click(save_translation, inputs=[project_name, tgt_text, tgt_lang, email], outputs=[num_tgt_chars, success_image])
+        load_button.click(gradio_translate, inputs=[project_name, tgt_lang], outputs=[src_text, tgt_text, num_src_chars, num_tgt_chars])
+        save_button.click(save_translation, inputs=[project_name, tgt_text, tgt_lang], outputs=[num_tgt_chars, success_image])
 
-    translator.load(get_cross_projects, inputs=[email], outputs=[user_projects])
+    translator.load(get_cross_projects, inputs=[], outputs=[user_projects])
 
 if __name__ == '__main__':
     translator.launch(debug=True)

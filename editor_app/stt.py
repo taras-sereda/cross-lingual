@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from media_utils import download_youtube_media, extract_and_resample_audio_ffmpeg, extract_video_id, \
     get_youtube_embed_code, media_has_video_steam
-from utils import compute_string_similarity
+from utils import compute_string_similarity, get_user_from_request
 from utils import gradio_read_audio_data
 from . import cfg
 from . import schemas, crud
@@ -26,7 +26,7 @@ DEMO_DURATION = 120  # duration of demo in seconds
 AD_OFFSET = 120  # approx ad offset
 
 
-def transcribe(input_media, media_link, project_name: str, language: str, user_email: str, options: list):
+def transcribe(input_media, media_link, project_name: str, language: str, options: list, request: gr.Request):
     """Transcribe input media with speaker diarization, resulting transcript will be in form:
     [ HH:MM:SS.sss --> HH:MM:SS.sss ]
     {SPEAKER}
@@ -41,7 +41,7 @@ def transcribe(input_media, media_link, project_name: str, language: str, user_e
         save_speakers = True
     if len(language) == 0:
         language = None
-
+    user_email = get_user_from_request(request)
     db: Session = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
 
@@ -154,7 +154,8 @@ def transcribe(input_media, media_link, project_name: str, language: str, user_e
     return results
 
 
-def save_transcript(project_name, text, lang, user_email):
+def save_transcript(project_name, text, lang, request: gr.Request):
+    user_email = get_user_from_request(request)
     db: Session = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
     cross_project = crud.get_cross_project_by_title(db, project_name, user.id, ensure_exists=True)

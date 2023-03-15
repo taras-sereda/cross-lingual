@@ -1,14 +1,11 @@
 import gradio as gr
 
-from editor_app import cfg, html_menu
+from editor_app import cfg
 from editor_app.tts import read, reread, load, combine, get_cross_projects, load_translation
 
 with gr.Blocks() as submitter:
     with gr.Row() as row0:
         with gr.Column(scale=1, variant='panel') as col0:
-            with gr.Row(variant='panel'):
-                menu = gr.HTML(html_menu)
-                email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
             user_projects = gr.Dataframe(label='user projects')
             speakers = gr.Dataframe(label='speakers', col_count=1)
             with gr.Row():
@@ -20,18 +17,15 @@ with gr.Blocks() as submitter:
             text = gr.Text(label='Text')
             button = gr.Button(value='Go!', variant='primary')
 
-        load_translation_button.click(load_translation, inputs=[title, lang, email], outputs=[text, speakers])
-        button.click(fn=read, inputs=[title, lang, text, email], outputs=[])
+        load_translation_button.click(load_translation, inputs=[title, lang], outputs=[text, speakers])
+        button.click(fn=read, inputs=[title, lang, text])
 
-    submitter.load(get_cross_projects, inputs=[email], outputs=[user_projects])
+    submitter.load(get_cross_projects, inputs=[], outputs=[user_projects])
 
 
 with gr.Blocks() as editor:
     with gr.Row() as editor_row0:
         with gr.Column(scale=1, variant='panel') as editor_col0:
-            with gr.Row(variant='panel'):
-                menu = gr.HTML(value=html_menu)
-                email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
             user_projects = gr.Dataframe(label='user projects')
             speakers = gr.Dataframe(label='speakers', col_count=1)
             with gr.Row() as proj_row:
@@ -64,15 +58,15 @@ with gr.Blocks() as editor:
 
                 try_again = gr.Button(value='try again', visible=False)
                 try_again.click(fn=reread,
-                                inputs=[title, lang, utter_text, utter_idx, utter_speaker, email],
+                                inputs=[title, lang, utter_text, utter_idx, utter_speaker],
                                 outputs=[utter_audio, utter_speaker, utter_score])
 
                 outputs.extend([utter_text, utter_idx, utter_speaker, utter_score, utter_audio, try_again])
 
-        button_load.click(fn=load, inputs=[title, lang, email, utter_from_idx, score_slider], outputs=outputs)
-        button_combine.click(fn=combine, inputs=[title, lang, email], outputs=[video, audio])
+        button_load.click(fn=load, inputs=[title, lang, utter_from_idx, score_slider], outputs=outputs)
+        button_combine.click(fn=combine, inputs=[title, lang], outputs=[video, audio])
 
-    editor.load(get_cross_projects, inputs=[email], outputs=[user_projects])
+    editor.load(get_cross_projects, inputs=[], outputs=[user_projects])
 
 
 if __name__ == '__main__':

@@ -1,15 +1,12 @@
 import gradio as gr
 
-from editor_app import cfg, html_menu, BASENJI_PIC
+from editor_app import BASENJI_PIC
 from editor_app.stt import transcribe, save_transcript
 from editor_app.tts import get_cross_projects
 
 with gr.Blocks() as transcriber:
     with gr.Row() as row0:
         with gr.Column(scale=1, variant='panel') as col0:
-            with gr.Row(variant='panel'):
-                menu = gr.HTML(value=html_menu)
-                email = gr.Text(label='user', placeholder='Enter user email', value=cfg.user.email)
             user_projects = gr.Dataframe(label='user projects')
             project_name = gr.Text(label='Project name', placeholder="enter your project name, can't be empty.")
             media_link = gr.Text(label='Youtube Link', placeholder='Link to youtube video.')
@@ -34,14 +31,14 @@ with gr.Blocks() as transcriber:
 
         transcribe_button.click(
             transcribe,
-            inputs=[file, media_link, project_name, lang, email, options],
+            inputs=[file, media_link, project_name, lang, options],
             outputs=[text, lang, speakers, iframe, audio, video])
         save_transcript_button.click(
             save_transcript,
-            inputs=[project_name, text, lang, email],
+            inputs=[project_name, text, lang],
             outputs=[success_image])
 
-    transcriber.load(get_cross_projects, inputs=[email], outputs=[user_projects])
+    transcriber.load(get_cross_projects, inputs=[], outputs=[user_projects])
 
 if __name__ == '__main__':
     transcriber.launch(debug=True)

@@ -43,14 +43,3 @@ children would be his first.
 """
 
 example_voice_sample_path = Path(__file__).parent.parent.joinpath('data/VLND2ptAOio.clip.24000.wav')
-
-# For some reason gradio, rewrites target all the time to _blank, no matter what target I specify.
-# So all links are still opening in a new tab unfortunately.
-html_menu = """
-<ul>
-	<li><a target="_blank" rel="noopener noreferrer" href="/transcribe">transcribe</a></li>
-	<li><a target="_blank" rel="noopener noreferrer" href="/translate">translate</a></li>
-	<li><a target="_blank" rel="noopener noreferrer" href="/submit">submit</a></li>
-	<li><a target="_blank" rel="noopener noreferrer" href="/editor/">edit</a></li>
-</ul>
-"""

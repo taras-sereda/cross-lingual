@@ -16,7 +16,8 @@ from tortoise.utils.text import split_and_recombine_text
 from tortoise.utils.wav2vec_alignment import Wav2VecAlignment
 
 from media_utils import convert_wav_to_mp3_ffmpeg, media_has_video_steam, mux_video_audio
-from utils import compute_string_similarity, split_on_raw_utterances, raw_speaker_re, time_re, normalize_text, find_single_repetition
+from utils import compute_string_similarity, split_on_raw_utterances, raw_speaker_re, time_re, normalize_text, \
+    find_single_repetition, get_user_from_request
 from datatypes import RawUtterance
 from . import schemas, crud, cfg
 from .database import SessionLocal
@@ -60,7 +61,8 @@ def get_speakers(user_email, cross_project_name, limit=10) -> pd.DataFrame:
     return pd.DataFrame(data=data).head(limit)
 
 
-def get_cross_projects(user_email, limit=10) -> pd.DataFrame:
+def get_cross_projects(request: gr.Request, limit=10) -> pd.DataFrame:
+    user_email = get_user_from_request(request)
     db: Session = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
     db.close()
@@ -76,7 +78,9 @@ def get_cross_projects(user_email, limit=10) -> pd.DataFrame:
     return data
 
 
-def read(title, lang, raw_text, user_email, check_for_repetitions=False):
+def read(title, lang, raw_text, request: gr.Request=None):
+    check_for_repetitions = False
+    user_email = get_user_from_request(request)
     if len(title) == 0:
         raise Exception(f"Project title {title} can't be empty.")
 
@@ -190,7 +194,8 @@ def playground_read(text, speaker_name, user_email):
     return outputs
 
 
-def load_translation(cross_project_name: str, lang: str, user_email: str):
+def load_translation(cross_project_name: str, lang: str, request: gr.Request):
+    user_email = get_user_from_request(request)
     db = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
     translation_project = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
@@ -198,7 +203,8 @@ def load_translation(cross_project_name: str, lang: str, user_email: str):
     return translation_project.text, speakears
 
 
-def load(cross_project_name: str, lang: str, user_email: str, from_idx: int, score_threshold=None):
+def load(cross_project_name: str, lang: str, from_idx: int, score_threshold: int, request: gr.Request):
+    user_email = get_user_from_request(request)
     db = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
 
@@ -243,7 +249,8 @@ def load(cross_project_name: str, lang: str, user_email: str, from_idx: int, sco
     return res
 
 
-def reread(cross_project_name, lang, text, utterance_idx, speaker_name, user_email):
+def reread(cross_project_name, lang, text, utterance_idx, speaker_name, request: gr.Request):
+    user_email = get_user_from_request(request)
     db: Session = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
 
@@ -280,7 +287,8 @@ def reread(cross_project_name, lang, text, utterance_idx, speaker_name, user_ema
     return (cfg.tts.sample_rate, gen), speaker_name, score
 
 
-def combine(cross_project_name, lang, user_email):
+def combine(cross_project_name, lang, request: gr.Request):
+    user_email = get_user_from_request(request)
     db = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
     cross_proj = crud.get_cross_project_by_title(db, cross_project_name, user.id)
