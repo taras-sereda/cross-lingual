@@ -13,16 +13,13 @@ from sqlalchemy.orm import Session
 from media_utils import download_youtube_media, extract_and_resample_audio_ffmpeg, get_youtube_embed_code, media_has_video_steam
 from utils import compute_string_similarity, get_user_from_request
 from utils import gradio_read_audio_data
-from . import cfg
+from config import cfg
 from . import schemas, crud
 from .database import SessionLocal
 from .models import Utterance
 
 stt_model = whisper.load_model(cfg.stt.model_size)
 diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_auth_token=cfg.diarization.auth_token)
-
-DEMO_DURATION = 120  # duration of demo in seconds
-AD_OFFSET = 120  # approx ad offset
 
 
 def transcribe(input_media, media_link, project_name: str, language: str, options: list, request: gr.Request):
@@ -76,10 +73,10 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
         waveform_16k = waveform_16k[:(10*60*cfg.stt.sample_rate)]
         waveform_22k = waveform_22k[:(10*60*cfg.tts.spkr_emb_sample_rate)]
         # unset ad offset for projects shorter than offset
-        if len(waveform_16k) / cfg.stt.sample_rate < AD_OFFSET:
+        if len(waveform_16k) / cfg.stt.sample_rate < cfg.demo.ad_offset_sec:
             ad_offset = -1
         else:
-            ad_offset = AD_OFFSET
+            ad_offset = cfg.demo.ad_offset_sec
 
     diarization = diarization_model({'waveform': waveform_16k.unsqueeze(0), 'sample_rate': cfg.stt.sample_rate})
     demo_duration = 0
@@ -118,7 +115,7 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
 
         if demo_run:
             demo_duration += (seg.end - seg.start)
-            if demo_duration >= DEMO_DURATION:
+            if demo_duration >= cfg.demo.duration_sec:
                 break
 
     # quick and dirty way to cut audio on pieces with ffmpeg.

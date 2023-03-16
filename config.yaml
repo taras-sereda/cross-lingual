@@ -31,3 +31,8 @@ podcastindex:
   api_secret: "YRteGrQ5HG4F4C8dk9HJQz8DzkPnDkKbuGsA5##G"
   db:
     name: "podcastindex_feeds.db"
+
+demo:
+  duration_sec: 120
+  extra_dur_sec: 2
+  ad_offset_sec: 120

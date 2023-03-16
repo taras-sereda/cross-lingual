@@ -9,9 +9,9 @@ import ffmpeg
 import requests
 from pytube import YouTube
 
-ffmpeg_path = shutil.which('ffmpeg')
+from config import cfg
 
-extra_length_sec = 2
+ffmpeg_path = shutil.which('ffmpeg')
 
 
 def media_has_video_steam(media_path: Path) -> bool:
@@ -35,7 +35,7 @@ def mux_video_audio(video_path: Path, audio_path: Path, output_path: str, video_
     """
     # Use ffmpeg to get the streams from the video and audio files
     audio_duration = get_stream_duration(audio_path)
-    video = ffmpeg.input(video_path, ss=video_offset_sec, t=audio_duration+extra_length_sec)
+    video = ffmpeg.input(video_path, ss=video_offset_sec, t=audio_duration+cfg.demo.extra_dur_sec)
     audio = ffmpeg.input(audio_path)
 
     # Map the video and audio streams to the output file

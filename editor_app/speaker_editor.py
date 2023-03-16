@@ -1,6 +1,6 @@
 import gradio as gr
 
-from editor_app import cfg
+from config import cfg
 from editor_app.tts import playground_read, add_speaker
 
 with gr.Blocks() as playground:

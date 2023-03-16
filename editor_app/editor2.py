@@ -1,6 +1,6 @@
 import gradio as gr
 
-from editor_app import cfg
+from config import cfg
 from editor_app.tts import read, reread, load, combine, get_cross_projects, load_translation
 
 with gr.Blocks() as submitter:

@@ -15,11 +15,12 @@ from tortoise.utils.audio import load_voices, load_audio
 from tortoise.utils.text import split_and_recombine_text
 from tortoise.utils.wav2vec_alignment import Wav2VecAlignment
 
+from config import cfg
 from media_utils import convert_wav_to_mp3_ffmpeg, media_has_video_steam, mux_video_audio
 from utils import compute_string_similarity, split_on_raw_utterances, raw_speaker_re, time_re, normalize_text, \
     find_single_repetition, get_user_from_request
 from datatypes import RawUtterance
-from . import schemas, crud, cfg
+from . import schemas, crud
 from .database import SessionLocal
 from .models import User, Utterance
 from .stt import stt_model, compute_and_store_score, get_or_compute_score, calculate_project_score

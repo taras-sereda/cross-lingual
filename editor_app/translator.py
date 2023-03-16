@@ -4,7 +4,8 @@ import deepl
 import gradio as gr
 from sqlalchemy.orm import Session
 
-from editor_app import cfg, crud, schemas
+from config import cfg
+from editor_app import crud, schemas
 from editor_app.database import SessionLocal
 from editor_app.tts import get_cross_projects
 from utils import split_on_raw_utterances, get_user_from_request
