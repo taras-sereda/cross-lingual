@@ -4,7 +4,7 @@ import deepl
 import gradio as gr
 from sqlalchemy.orm import Session
 
-from editor_app import cfg, crud, schemas, BASENJI_PIC
+from editor_app import cfg, crud, schemas
 from editor_app.database import SessionLocal
 from editor_app.tts import get_cross_projects
 from utils import split_on_raw_utterances, get_user_from_request
@@ -81,7 +81,7 @@ def save_translation(project_name, text, lang, request: gr.Request):
         f.write(text)
 
     num_tgt_char = get_num_char(translation_db.text)
-    return num_tgt_char, gr.Image.update(visible=True)
+    return num_tgt_char
 
 
 with gr.Blocks() as translator:
@@ -100,11 +100,10 @@ with gr.Blocks() as translator:
                 num_tgt_chars = gr.Number(label='[Target language] Number of characters')
             load_button = gr.Button(value='Load and go!')
             save_button = gr.Button(value='Save')
-            success_image = gr.Image(value=BASENJI_PIC, visible=False)
         load_button.click(gradio_translate, inputs=[project_name, tgt_lang], outputs=[src_text, tgt_text, num_src_chars, num_tgt_chars])
-        save_button.click(save_translation, inputs=[project_name, tgt_text, tgt_lang], outputs=[num_tgt_chars, success_image])
+        save_button.click(save_translation, inputs=[project_name, tgt_text, tgt_lang], outputs=[num_tgt_chars])
 
-    translator.load(get_cross_projects, inputs=[], outputs=[user_projects])
+    translator.load(get_cross_projects, outputs=[user_projects])
 
 if __name__ == '__main__':
     translator.launch(debug=True)

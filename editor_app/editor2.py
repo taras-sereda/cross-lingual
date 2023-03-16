@@ -20,7 +20,7 @@ with gr.Blocks() as submitter:
         load_translation_button.click(load_translation, inputs=[title, lang], outputs=[text, speakers])
         button.click(fn=read, inputs=[title, lang, text])
 
-    submitter.load(get_cross_projects, inputs=[], outputs=[user_projects])
+    submitter.load(get_cross_projects, outputs=[user_projects])
 
 
 with gr.Blocks() as editor:
@@ -66,7 +66,7 @@ with gr.Blocks() as editor:
         button_load.click(fn=load, inputs=[title, lang, utter_from_idx, score_slider], outputs=outputs)
         button_combine.click(fn=combine, inputs=[title, lang], outputs=[video, audio])
 
-    editor.load(get_cross_projects, inputs=[], outputs=[user_projects])
+    editor.load(get_cross_projects, outputs=[user_projects])
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 import pathlib
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Boolean, Float, UniqueConstraint
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, Float, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from . import data_root

@@ -10,8 +10,7 @@ import whisper
 from pyannote.audio import Pipeline
 from sqlalchemy.orm import Session
 
-from media_utils import download_youtube_media, extract_and_resample_audio_ffmpeg, extract_video_id, \
-    get_youtube_embed_code, media_has_video_steam
+from media_utils import download_youtube_media, extract_and_resample_audio_ffmpeg, get_youtube_embed_code, media_has_video_steam
 from utils import compute_string_similarity, get_user_from_request
 from utils import gradio_read_audio_data
 from . import cfg
@@ -136,8 +135,7 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
     results.append(detected_spkrs)
 
     if len(media_link) > 0:
-        youtube_id = extract_video_id(media_link)
-        iframe_val = get_youtube_embed_code(youtube_id)
+        iframe_val = get_youtube_embed_code(media_link)
         results.append(gr.HTML.update(value=iframe_val))
         results.append(gr.Audio.update(visible=False))
         results.append(gr.Video.update(visible=False))
@@ -169,8 +167,6 @@ def save_transcript(project_name, text, lang, request: gr.Request):
 
     with open(transcript_db.get_path(), 'w') as f:
         f.write(text)
-
-    return gr.Image.update(visible=True)
 
 
 def transcribe_utterance(utterance: Utterance, language=None):

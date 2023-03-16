@@ -125,14 +125,9 @@ def read(title, lang, raw_text, request: gr.Request=None):
         utterance = crud.create_utterance(db, utterance_data, translation.id, speakers_to_features[utter.speaker]['id'])
         sf.write(utterance.get_audio_path(), gen, cfg.tts.sample_rate)
         crud.update_any_db_row(db, utterance, date_completed=datetime.now())
+        score = compute_and_store_score(db, utterance)
 
     project = crud.update_any_db_row(db, translation, date_completed=datetime.now())
-
-    for utter in project.utterances:
-        # score already computed in editor.
-        if len(utter.utterance_stt) > 0:
-            continue
-        score = compute_and_store_score(db, utter)
 
     if check_for_repetitions:
         key_func = lambda x: x.date

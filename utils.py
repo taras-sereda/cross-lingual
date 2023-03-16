@@ -83,7 +83,7 @@ def compute_string_similarity(str1: str, str2: str, normalize=True) -> float:
 def acronym_preprocessing(text):
     # So far it's a table based approach
     # return re.sub('AI', 'Artificial intelligence', text)
-    # re sub accepts functions as a repl arguments, are cool!
+    # re sub accepts function arguments for a repl parameter. Nice!
     return re.sub(acronym_re, lambda m: '.'.join(m.group()), text)
 
 

@@ -17,5 +17,6 @@ user_db = [
     ("taras.y.sereda@proton.me", "qwerty"),
     ("bohdan@crosslingual.io", "qwerty")
 ]
+auth_msg = "Welcome to CrossLingual"
 if __name__ == '__main__':
-    cross_lingual.launch(auth=user_db, server_name="0.0.0.0", server_port=8000)
+    cross_lingual.launch(auth=user_db, auth_message=auth_msg, server_name="0.0.0.0", server_port=8000)

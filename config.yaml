@@ -26,9 +26,6 @@ diarization:
 translation:
   auth_token: "ec035bdb-9e90-810f-cfd3-2da51ee91ca2:fx"
 
-user:
-  email: "taras.y.sereda@proton.me"
-
 podcastindex:
   api_key: "8SKFTZXBN83JEX5M99UX"
   api_secret: "YRteGrQ5HG4F4C8dk9HJQz8DzkPnDkKbuGsA5##G"

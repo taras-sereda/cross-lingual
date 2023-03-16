@@ -1,5 +1,4 @@
 import os
-import re
 import shutil
 import subprocess
 import uuid
@@ -53,37 +52,16 @@ def mux_video_audio(video_path: Path, audio_path: Path, output_path: str, video_
             raise e
 
 
-def get_youtube_embed_code(video_id):
+def get_youtube_embed_code(youtube_link) -> str:
     """
     Constructs an embed URL for a YouTube video and returns the corresponding iframe code.
-
-    Args:
-        video_id (str): The ID of the YouTube video.
 
     Returns:
         str: The iframe code for the YouTube video.
     """
-    embed_url = f"https://www.youtube.com/embed/{video_id}"
-    iframe_code = f'<iframe width="560" height="315" src="{embed_url}" frameborder="0" allowfullscreen></iframe>'
+    yt = YouTube(youtube_link)
+    iframe_code = f'<iframe width="560" height="315" src="{yt.embed_url}" frameborder="0" allowfullscreen></iframe>'
     return iframe_code
-
-
-def extract_video_id(youtube_link):
-    """
-    Extracts the video ID from a YouTube link.
-
-    Args:
-        youtube_link (str): The YouTube link.
-
-    Returns:
-        str: The video ID.
-    """
-    pattern = r"(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=|embed\/|v\/)?([a-zA-Z0-9_-]{11})"
-    match = re.search(pattern, youtube_link)
-    if match:
-        return match.group(1)
-    else:
-        return None
 
 
 def convert_wav_to_mp3_ffmpeg(in_path: Path, out_path: Path):
@@ -132,28 +110,13 @@ def download_youtube_media(url, output_dir) -> Path:
     yt = YouTube(url)
 
     # Get the first available video stream
-    video = yt.streams.filter(progressive=True).first()
+    video = yt.streams.filter(progressive=True, file_extension='mp4').first()
 
     # Download the video
     filename = str(uuid.uuid4())
     video_file = video.download(output_dir, filename)
 
     return Path(video_file)
-
-
-def get_youtube_embed_code(video_id):
-    """
-    Constructs an embed URL for a YouTube video and returns the corresponding iframe code.
-
-    Args:
-        video_id (str): The ID of the YouTube video.
-
-    Returns:
-        str: The iframe code for the YouTube video.
-    """
-    embed_url = f"https://www.youtube.com/embed/{video_id}"
-    iframe_code = f'<iframe width="560" height="315" src="{embed_url}" frameborder="0" allowfullscreen></iframe>'
-    return iframe_code
 
 
 def download_media(url: str, save_path: Path) -> bool:

@@ -1,6 +1,5 @@
 import gradio as gr
 
-from editor_app import BASENJI_PIC
 from editor_app.stt import transcribe, save_transcript
 from editor_app.tts import get_cross_projects
 
@@ -27,7 +26,6 @@ with gr.Blocks() as transcriber:
             iframe = gr.HTML(label='youtube video')
             audio = gr.Audio(visible=False)
             video = gr.Video(visible=False)
-            success_image = gr.Image(value=BASENJI_PIC, visible=False)
 
         transcribe_button.click(
             transcribe,
@@ -35,10 +33,9 @@ with gr.Blocks() as transcriber:
             outputs=[text, lang, speakers, iframe, audio, video])
         save_transcript_button.click(
             save_transcript,
-            inputs=[project_name, text, lang],
-            outputs=[success_image])
+            inputs=[project_name, text, lang])
 
-    transcriber.load(get_cross_projects, inputs=[], outputs=[user_projects])
+    transcriber.load(get_cross_projects, outputs=[user_projects])
 
 if __name__ == '__main__':
     transcriber.launch(debug=True)
