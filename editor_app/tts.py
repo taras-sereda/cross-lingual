@@ -6,78 +6,28 @@ from datetime import datetime
 import gradio as gr
 import soundfile as sf
 import numpy as np
-import pandas as pd
 import torch
 from sqlalchemy.orm import Session
 
 from tortoise.api import TextToSpeech
-from tortoise.utils.audio import load_voices, load_audio
+from tortoise.utils.audio import load_voices
 from tortoise.utils.text import split_and_recombine_text
 from tortoise.utils.wav2vec_alignment import Wav2VecAlignment
 
 from config import cfg
 from media_utils import convert_wav_to_mp3_ffmpeg, media_has_video_steam, mux_video_audio
 from string_utils import validate_and_preprocess_title
-from utils import compute_string_similarity, split_on_raw_utterances, raw_speaker_re, time_re, normalize_text, \
+from utils import compute_string_similarity, split_on_raw_utterances, time_re, normalize_text, \
     find_single_repetition, get_user_from_request
 from datatypes import RawUtterance
 from . import schemas, crud
+from .common import get_speakers
 from .database import SessionLocal
-from .models import User, Utterance
+from .models import Utterance
 from .stt import stt_model, compute_and_store_score, get_or_compute_score, calculate_project_score
 
 tts_model = TextToSpeech()
 aligner = Wav2VecAlignment()
-
-
-def add_speaker(audio_tuple, speaker_name, user_email):
-    raise NotImplementedError
-    db: Session = SessionLocal()
-    user: User = crud.get_user_by_email(db, user_email)
-
-    if not raw_speaker_re.fullmatch(speaker_name):
-        raise Exception(f"Invalid speaker name")
-
-    if speaker_name in [spkr.name for spkr in user.speakers]:
-        raise Exception(f"Speaker {speaker_name} already exists!")
-
-    # write data to db
-    speaker = crud.create_speaker(db, speaker_name, user.id)
-
-    # save data on disk
-    for idx, audio_temp_file in enumerate(audio_tuple):
-        wav_path = speaker.get_speaker_data_root().joinpath(f'{idx:03}.wav')
-        data = load_audio(audio_temp_file.name, sampling_rate=cfg.tts.spkr_emb_sample_rate)
-        sf.write(wav_path, data.squeeze(0), cfg.tts.spkr_emb_sample_rate)
-    db.close()
-
-
-def get_speakers(user_email, cross_project_name, limit=10) -> pd.DataFrame:
-    db: Session = SessionLocal()
-    user = crud.get_user_by_email(db, user_email)
-    cross_project = crud.get_cross_project_by_title(db, cross_project_name, user.id)
-    db.close()
-    data = defaultdict(list)
-    for spkr in cross_project.speakers:
-        data['name'] += [spkr.name]
-    return pd.DataFrame(data=data).head(limit)
-
-
-def get_cross_projects(request: gr.Request, limit=10) -> pd.DataFrame:
-    user_email = get_user_from_request(request)
-    db: Session = SessionLocal()
-    user = crud.get_user_by_email(db, user_email)
-    db.close()
-    data = defaultdict(list)
-    for proj in user.crosslingual_projects:
-        for translation in proj.translations:
-            data['title'] += [proj.title]
-            data['lang'] += [translation.lang]
-            data['date_completed'] += [translation.date_completed]
-    data = pd.DataFrame(data=data)
-    if len(data) > 0:
-        data = data.sort_values(by=['date_completed'], ascending=False, na_position='first').head(limit)
-    return data
 
 
 def read(title, lang, raw_text, request: gr.Request=None):

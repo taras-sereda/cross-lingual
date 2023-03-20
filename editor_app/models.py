@@ -29,7 +29,7 @@ class CrossProject(Base):
     media_name = Column(String, nullable=False)
     owner_id = Column(Integer, ForeignKey("user.id"))
     owner = relationship("User", back_populates="crosslingual_projects")
-    transcript = relationship("Transcript", back_populates="cross_project")
+    transcript = relationship("Transcript", back_populates="cross_project", lazy="joined")
     translations = relationship("Translation", back_populates="cross_project", lazy='joined')
     speakers = relationship("Speaker", back_populates="cross_project", lazy='joined')
 

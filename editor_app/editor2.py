@@ -1,7 +1,8 @@
 import gradio as gr
 
 from config import cfg
-from editor_app.tts import read, reread, load, combine, get_cross_projects, load_translation
+from editor_app.tts import read, reread, load, combine, load_translation
+from editor_app.common import get_cross_projects
 
 with gr.Blocks() as submitter:
     with gr.Row() as row0:

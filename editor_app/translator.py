@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from config import cfg
 from editor_app import crud, schemas
 from editor_app.database import SessionLocal
-from editor_app.tts import get_cross_projects
+from editor_app.common import get_cross_projects
+from editor_app.stt import load_transcript
 from string_utils import validate_and_preprocess_title
 from utils import split_on_raw_utterances, get_user_from_request
 
@@ -102,9 +103,13 @@ with gr.Blocks() as translator:
             with gr.Row():
                 num_src_chars = gr.Number(label='[Source language] Number of characters')
                 num_tgt_chars = gr.Number(label='[Target language] Number of characters')
-            load_button = gr.Button(value='Load and go!')
-            save_button = gr.Button(value='Save')
-        load_button.click(gradio_translate, inputs=[project_name, tgt_lang], outputs=[src_text, tgt_text, num_src_chars, num_tgt_chars])
+            with gr.Row():
+                load_button = gr.Button(value='Load Transcript')
+                translate_button = gr.Button(value='Translate')
+                save_button = gr.Button(value='Save Translation')
+
+        load_button.click(load_transcript, inputs=[project_name], outputs=[project_name, src_text])
+        translate_button.click(gradio_translate, inputs=[project_name, tgt_lang], outputs=[src_text, tgt_text, num_src_chars, num_tgt_chars])
         save_button.click(save_translation, inputs=[project_name, tgt_text, tgt_lang], outputs=[num_tgt_chars])
 
     translator.load(get_cross_projects, outputs=[user_projects])

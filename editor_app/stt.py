@@ -149,6 +149,18 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
     return results
 
 
+def load_transcript(project_name: str, request: gr.Request) -> list:
+    user_email = get_user_from_request(request)
+    project_name = validate_and_preprocess_title(project_name)
+    db: Session = SessionLocal()
+    user = crud.get_user_by_email(db, user_email)
+    cross_project = crud.get_cross_project_by_title(db, project_name, user.id, ensure_exists=True)
+    if len(cross_project.transcript) == 0:
+        Exception("CrossProject doesn't have a transcript, normally this shouldn't happen, contact me!!!")
+
+    return [project_name, cross_project.transcript[0].text]
+
+
 def save_transcript(project_name: str, text: str, lang: str, request: gr.Request) -> str:
     user_email = get_user_from_request(request)
     project_name = validate_and_preprocess_title(project_name)
@@ -199,4 +211,8 @@ def calculate_project_score(db, project) -> (float, list):
     scores = []
     for utterance in project.utterances:
         scores.append(get_or_compute_score(db, utterance))
-    return sum(scores) / len(scores), scores
+    if len(scores) == 0:
+        mean = 0
+    else:
+        mean = sum(scores) / len(scores)
+    return mean, scores
