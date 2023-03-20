@@ -11,6 +11,7 @@ from pyannote.audio import Pipeline
 from sqlalchemy.orm import Session
 
 from media_utils import download_youtube_media, extract_and_resample_audio_ffmpeg, get_youtube_embed_code, media_has_video_steam
+from string_utils import validate_and_preprocess_title
 from utils import compute_string_similarity, get_user_from_request
 from utils import gradio_read_audio_data
 from config import cfg
@@ -28,8 +29,6 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
     {SPEAKER}
     Transcribed text
     """
-    assert len(project_name) > 0, "Project name can't be empty"
-
     demo_run, save_speakers = False, False
     if 'Demo Run' in options:
         demo_run = True
@@ -38,6 +37,7 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
     if len(language) == 0:
         language = None
     user_email = get_user_from_request(request)
+    project_name = validate_and_preprocess_title(project_name)
     db: Session = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
 
@@ -149,21 +149,22 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
     return results
 
 
-def save_transcript(project_name, text, lang, request: gr.Request):
+def save_transcript(project_name: str, text: str, lang: str, request: gr.Request) -> str:
     user_email = get_user_from_request(request)
+    project_name = validate_and_preprocess_title(project_name)
     db: Session = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
     cross_project = crud.get_cross_project_by_title(db, project_name, user.id, ensure_exists=True)
 
     if len(cross_project.transcript) > 0:
-        print('Transcript already saved!!!')
-        return gr.Image.update(visible=True)
+        Exception("Transcript already saved!!!")
 
     transcript_data = schemas.TranscriptCreate(text=text, lang=lang)
     transcript_db = crud.create_transcript(db, transcript_data, cross_project.id)
 
     with open(transcript_db.get_path(), 'w') as f:
         f.write(text)
+    return project_name
 
 
 def transcribe_utterance(utterance: Utterance, language=None):

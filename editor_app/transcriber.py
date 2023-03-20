@@ -33,7 +33,8 @@ with gr.Blocks() as transcriber:
             outputs=[text, lang, speakers, iframe, audio, video])
         save_transcript_button.click(
             save_transcript,
-            inputs=[project_name, text, lang])
+            inputs=[project_name, text, lang],
+            outputs=[project_name])
 
     transcriber.load(get_cross_projects, outputs=[user_projects])
 

@@ -8,6 +8,7 @@ from config import cfg
 from editor_app import crud, schemas
 from editor_app.database import SessionLocal
 from editor_app.tts import get_cross_projects
+from string_utils import validate_and_preprocess_title
 from utils import split_on_raw_utterances, get_user_from_request
 
 deepl_translator = deepl.Translator(cfg.translation.auth_token)
@@ -48,6 +49,7 @@ def get_num_char(text: str):
 
 def gradio_translate(project_name, tgt_lang, request: gr.Request):
     user_email = get_user_from_request(request)
+    project_name = validate_and_preprocess_title(project_name)
     db: Session = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
     cross_project = crud.get_cross_project_by_title(db, project_name, user.id)
@@ -67,6 +69,7 @@ def gradio_translate(project_name, tgt_lang, request: gr.Request):
 
 def save_translation(project_name, text, lang, request: gr.Request):
     user_email = get_user_from_request(request)
+    project_name = validate_and_preprocess_title(project_name)
     db: Session = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
     cross_project = crud.get_cross_project_by_title(db, project_name, user.id, ensure_exists=True)

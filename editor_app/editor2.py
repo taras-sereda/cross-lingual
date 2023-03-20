@@ -17,7 +17,7 @@ with gr.Blocks() as submitter:
             text = gr.Text(label='Text')
             button = gr.Button(value='Go!', variant='primary')
 
-        load_translation_button.click(load_translation, inputs=[title, lang], outputs=[text, speakers])
+        load_translation_button.click(load_translation, inputs=[title, lang], outputs=[title, text, speakers])
         button.click(fn=read, inputs=[title, lang, text], outputs=[title])
 
     submitter.load(get_cross_projects, outputs=[user_projects])
@@ -44,7 +44,7 @@ with gr.Blocks() as editor:
             video = gr.Video(visible=False)
             audio = gr.Audio(visible=False)
 
-        outputs = [speakers, text, num_utterance, avg_prj_score]
+        outputs = [title, speakers, text, num_utterance, avg_prj_score]
         with gr.Column(scale=1, variant='compact') as editor_col1:
             for i in range(cfg.editor.max_utterance):
 

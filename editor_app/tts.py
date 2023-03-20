@@ -17,6 +17,7 @@ from tortoise.utils.wav2vec_alignment import Wav2VecAlignment
 
 from config import cfg
 from media_utils import convert_wav_to_mp3_ffmpeg, media_has_video_steam, mux_video_audio
+from string_utils import validate_and_preprocess_title
 from utils import compute_string_similarity, split_on_raw_utterances, raw_speaker_re, time_re, normalize_text, \
     find_single_repetition, get_user_from_request
 from datatypes import RawUtterance
@@ -82,9 +83,7 @@ def get_cross_projects(request: gr.Request, limit=10) -> pd.DataFrame:
 def read(title, lang, raw_text, request: gr.Request=None):
     check_for_repetitions = False
     user_email = get_user_from_request(request)
-    if len(title) == 0:
-        raise Exception(f"Project title {title} can't be empty.")
-
+    title = validate_and_preprocess_title(title)
     db: Session = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
     translation = crud.get_translation_by_title_and_lang(db, title, lang, user.id)
@@ -196,15 +195,17 @@ def playground_read(text, speaker_name, user_email):
 
 def load_translation(cross_project_name: str, lang: str, request: gr.Request):
     user_email = get_user_from_request(request)
+    cross_project_name = validate_and_preprocess_title(cross_project_name)
     db = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
     translation_project = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
     speakears = get_speakers(user_email, cross_project_name)
-    return translation_project.text, speakears
+    return cross_project_name, translation_project.text, speakears
 
 
 def load(cross_project_name: str, lang: str, from_idx: int, score_threshold: int, request: gr.Request):
     user_email = get_user_from_request(request)
+    cross_project_name = validate_and_preprocess_title(cross_project_name)
     db = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
 
@@ -215,7 +216,7 @@ def load(cross_project_name: str, lang: str, from_idx: int, score_threshold: int
 
     avg_project_score, all_scores = calculate_project_score(db, project)
     speakers = get_speakers(user_email, cross_project_name)
-    res = [speakers, project.text, len(all_utterances), avg_project_score]
+    res = [cross_project_name, speakers, project.text, len(all_utterances), avg_project_score]
 
     if score_threshold > 0.0:
         temp = [(sc, ut) for sc, ut in sorted(zip(all_scores, all_utterances), key=lambda x: x[0])]
