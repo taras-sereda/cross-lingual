@@ -73,7 +73,7 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
         waveform_16k = waveform_16k[:(10*60*cfg.stt.sample_rate)]
         waveform_22k = waveform_22k[:(10*60*cfg.tts.spkr_emb_sample_rate)]
         # unset ad offset for projects shorter than offset
-        if len(waveform_16k) / cfg.stt.sample_rate < cfg.demo.ad_offset_sec:
+        if len(waveform_16k) / cfg.stt.sample_rate < (cfg.demo.ad_offset_sec + cfg.demo.duration_sec):
             ad_offset = -1
         else:
             ad_offset = cfg.demo.ad_offset_sec

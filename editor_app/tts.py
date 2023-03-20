@@ -168,6 +168,15 @@ def load(cross_project_name: str, lang: str, from_idx: int, score_threshold: int
     speakers = get_speakers(user_email, cross_project_name)
     res = [cross_project_name, speakers, project.text, len(all_utterances), avg_project_score]
 
+    combined_wav_mp3_path = project.get_data_root().joinpath(f'combined/{project.cross_project.title}.mp3')
+    mux_media_path = project.cross_project.get_media_path().with_suffix('.output.mp4')
+    if mux_media_path.exists():
+        res += [gr.Video.update(value=str(mux_media_path), visible=True), gr.Audio.update(visible=False)]
+    elif combined_wav_mp3_path.exists():
+        res += [gr.Video.update(visible=False), gr.Audio.update(value=str(combined_wav_mp3_path), visible=True)]
+    else:
+        res += [gr.Video.update(visible=False), gr.Audio.update(visible=False)]
+
     if score_threshold > 0.0:
         temp = [(sc, ut) for sc, ut in sorted(zip(all_scores, all_utterances), key=lambda x: x[0])]
         sorted_from_idx = bisect.bisect_right(temp, x=score_threshold, key=lambda x: x[0])

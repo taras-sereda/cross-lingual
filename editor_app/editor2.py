@@ -45,7 +45,7 @@ with gr.Blocks() as editor:
             video = gr.Video(visible=False)
             audio = gr.Audio(visible=False)
 
-        outputs = [title, speakers, text, num_utterance, avg_prj_score]
+        outputs = [title, speakers, text, num_utterance, avg_prj_score, video, audio]
         with gr.Column(scale=1, variant='compact') as editor_col1:
             for i in range(cfg.editor.max_utterance):
 
