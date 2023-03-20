@@ -92,6 +92,9 @@ def read(title, lang, raw_text, request: gr.Request=None):
         # raise Exception(f"Project {title} already exists! Try to load it")
         raise Exception(f"At the moment only {title} existing translations are supported.")
 
+    if len(translation.utterances) > 0:
+        raise Exception(f"Project already synthesized or in progress, navigate to Edit tab")
+
     speakers_to_features = dict()
     data: list[RawUtterance] = []
     for utter in split_on_raw_utterances(raw_text):
@@ -159,6 +162,7 @@ def read(title, lang, raw_text, request: gr.Request=None):
                 sf.write(utter.get_audio_path(), new_res_wav, sample_rate)
 
     db.close()
+    return title
 
 
 def playground_read(text, speaker_name, user_email):

@@ -18,7 +18,7 @@ with gr.Blocks() as submitter:
             button = gr.Button(value='Go!', variant='primary')
 
         load_translation_button.click(load_translation, inputs=[title, lang], outputs=[text, speakers])
-        button.click(fn=read, inputs=[title, lang, text])
+        button.click(fn=read, inputs=[title, lang, text], outputs=[title])
 
     submitter.load(get_cross_projects, outputs=[user_projects])
 
