@@ -94,7 +94,9 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
         speaker = speaker.lower()
         seg_wav_16k = waveform_16k[int(seg.start * cfg.stt.sample_rate): int(seg.end * cfg.stt.sample_rate)]
         seg_wav_22k = waveform_22k[int(seg.start * cfg.tts.spkr_emb_sample_rate): int(seg.end * cfg.tts.spkr_emb_sample_rate)]
-        seg_res = stt_model.transcribe(seg_wav_16k, language=language)
+        decode_options = whisper.DecodingOptions(fp16=cfg.stt.half_precision,
+                                                 language=language)
+        seg_res = stt_model.transcribe(seg_wav_16k, **decode_options.__dict__)
         text = seg_res['text']
         lang = seg_res['language']
         segments.append([seg, speaker, text, lang])

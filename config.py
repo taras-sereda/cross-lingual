@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import torch
@@ -5,12 +6,18 @@ from omegaconf import OmegaConf
 
 prj_root = Path(__file__).parent
 cfg = OmegaConf.load(prj_root.joinpath('config.yaml'))
-data_root = prj_root.joinpath(cfg.db.data_root)
+
+if not cfg.db.data_root:
+    if os.uname().sysname == 'Darwin':
+        user = os.environ.get('USER')
+        cfg.db.data_root = Path(f"/Users/{user}/crosslingual-data/user_data")
+    else:
+        cfg.db.data_root = Path("/data/crosslingual-data/user_data")
+
+data_root = cfg.db.data_root
 data_root.mkdir(exist_ok=True, parents=True)
 
 if torch.cuda.is_available():
-    preset = 'standard'
+    cfg.tts.preset = 'standard'
 else:
-    preset = 'ultra_fast'
-
-cfg.tts.preset = preset
+    cfg.tts.preset = 'ultra_fast'
