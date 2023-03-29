@@ -24,10 +24,10 @@ def get_cross_projects(request: gr.Request, limit=10) -> pd.DataFrame:
             data['title'] += [proj.title]
             data['lang'] += [translation.lang]
             data['date_completed'] += [translation.date_completed]
-    data = pd.DataFrame(data=data).head(limit)
+    data = pd.DataFrame(data=data)
     if len(data) > 0:
         data = data.sort_values(by=['date_completed'], ascending=False, na_position='first')
-    return data
+    return data.head(limit)
 
 
 def get_transcripts(request: gr.Request, limit=10, without_translations=True) -> pd.DataFrame:

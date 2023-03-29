@@ -42,10 +42,10 @@ with gr.Blocks() as editor:
             text = gr.Text(label='Text')
 
             button_combine = gr.Button(value='Combine')
-            video = gr.Video(visible=False)
             audio = gr.Audio(visible=False)
+            video = gr.Video(visible=False)
 
-        outputs = [title, speakers, text, num_utterance, avg_prj_score, video, audio]
+        outputs = [title, speakers, text, num_utterance, avg_prj_score, audio, video]
         with gr.Column(scale=1, variant='compact') as editor_col1:
             for i in range(cfg.editor.max_utterance):
 
@@ -65,7 +65,7 @@ with gr.Blocks() as editor:
                 outputs.extend([utter_text, utter_idx, utter_speaker, utter_score, utter_audio, try_again])
 
         button_load.click(fn=load, inputs=[title, lang, utter_from_idx, score_slider], outputs=outputs)
-        button_combine.click(fn=combine, inputs=[title, lang], outputs=[video, audio])
+        button_combine.click(fn=combine, inputs=[title, lang], outputs=[audio, video])
 
     editor.load(get_cross_projects, outputs=[user_projects])
 

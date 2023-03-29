@@ -3,8 +3,11 @@ import gradio as gr
 from transcriber import transcriber
 from translator import translator
 from editor2 import submitter, editor
+from end2end import e2e
 
 with gr.Blocks() as cross_lingual:
+    with gr.Tab("end2end") as e2e_tab:
+        e2e.render()
     with gr.Tab("transcribe") as transcribe:
         transcriber.render()
     with gr.Tab("translate") as translate:

@@ -23,7 +23,7 @@ from datatypes import RawUtterance
 from . import schemas, crud
 from .common import get_speakers
 from .database import SessionLocal
-from .models import Utterance
+from .models import Utterance, Translation
 from .stt import stt_model, compute_and_store_score, get_or_compute_score, calculate_project_score
 
 tts_model = TextToSpeech()
@@ -153,29 +153,38 @@ def load_translation(cross_project_name: str, lang: str, request: gr.Request):
     return cross_project_name, translation_project.text, speakears
 
 
-def load(cross_project_name: str, lang: str, from_idx: int, score_threshold: int, request: gr.Request):
-    user_email = get_user_from_request(request)
+def add_tgt_media_components(translation):
+    combined_wav_mp3_path = translation.get_data_root().joinpath(f'combined/{translation.cross_project.title}.mp3')
+    mux_media_path = translation.cross_project.get_media_path().with_suffix('.output.mp4')
+    if mux_media_path.exists():
+        res = [gr.Audio.update(visible=False), gr.Video.update(value=str(mux_media_path), visible=True)]
+    elif combined_wav_mp3_path.exists():
+        res = [gr.Audio.update(value=str(combined_wav_mp3_path), visible=True), gr.Video.update(visible=False)]
+    else:
+        res = [gr.Audio.update(visible=False), gr.Video.update(visible=False)]
+    return res
+
+
+def get_translation_wrapped(cross_project_name, lang, db, user_email) -> Translation:
     cross_project_name = validate_and_preprocess_title(cross_project_name)
-    db = SessionLocal()
     user = crud.get_user_by_email(db, user_email)
 
-    project = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
-    if not project:
-        raise Exception(f"no such project {cross_project_name}. Provide valid project title")
-    all_utterances = project.utterances
+    translation_db = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
+    if not translation_db:
+        raise Exception(f"no translation found for cross_project: {cross_project_name} and lang: {lang}")
+    return translation_db
 
-    avg_project_score, all_scores = calculate_project_score(db, project)
+
+def load(cross_project_name: str, lang: str, from_idx: int, score_threshold: int, request: gr.Request):
+    user_email = get_user_from_request(request)
+    db = SessionLocal()
+    translation_db = get_translation_wrapped(cross_project_name, lang, db, user_email)
+    all_utterances = translation_db.utterances
+
+    avg_project_score, all_scores = calculate_project_score(db, translation_db)
     speakers = get_speakers(user_email, cross_project_name)
-    res = [cross_project_name, speakers, project.text, len(all_utterances), avg_project_score]
-
-    combined_wav_mp3_path = project.get_data_root().joinpath(f'combined/{project.cross_project.title}.mp3')
-    mux_media_path = project.cross_project.get_media_path().with_suffix('.output.mp4')
-    if mux_media_path.exists():
-        res += [gr.Video.update(value=str(mux_media_path), visible=True), gr.Audio.update(visible=False)]
-    elif combined_wav_mp3_path.exists():
-        res += [gr.Video.update(visible=False), gr.Audio.update(value=str(combined_wav_mp3_path), visible=True)]
-    else:
-        res += [gr.Video.update(visible=False), gr.Audio.update(visible=False)]
+    res = [cross_project_name, speakers, translation_db.text, len(all_utterances), avg_project_score]
+    res += add_tgt_media_components(translation_db)
 
     if score_threshold > 0.0:
         temp = [(sc, ut) for sc, ut in sorted(zip(all_scores, all_utterances), key=lambda x: x[0])]
@@ -212,17 +221,13 @@ def load(cross_project_name: str, lang: str, from_idx: int, score_threshold: int
 def reread(cross_project_name, lang, text, utterance_idx, speaker_name, request: gr.Request):
     user_email = get_user_from_request(request)
     db: Session = SessionLocal()
-    user = crud.get_user_by_email(db, user_email)
+    translation_db = get_translation_wrapped(cross_project_name, lang, db, user_email)
 
-    translation = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
-    if not translation:
-        raise Exception(f"Project {cross_project_name} doesn't exists! "
-                        f"Normally this shouldn't happen")
-    new_speaker = crud.get_speaker_by_name(db, speaker_name, translation.cross_project_id)
+    new_speaker = crud.get_speaker_by_name(db, speaker_name, translation_db.cross_project_id)
     if not new_speaker:
         raise Exception(f"Speaker {speaker_name} doesn't exists. Add it first")
 
-    utterance = crud.get_utterance(db, utterance_idx, translation.id)
+    utterance = crud.get_utterance(db, utterance_idx, translation_db.id)
     if not utterance:
         raise Exception(f"Something went wrong, Utterance {utterance_idx} doesn't exists. "
                         f"Normally this shouldn't happen")
@@ -250,20 +255,16 @@ def reread(cross_project_name, lang, text, utterance_idx, speaker_name, request:
 def combine(cross_project_name, lang, request: gr.Request):
     user_email = get_user_from_request(request)
     db = SessionLocal()
-    user = crud.get_user_by_email(db, user_email)
-    cross_proj = crud.get_cross_project_by_title(db, cross_project_name, user.id)
-    project = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
-    if not project:
-        raise Exception(f"no such project {cross_project_name}. Provide valid project title")
+    translation_db = get_translation_wrapped(cross_project_name, lang, db, user_email)
 
-    combined_dir = project.utterances[0].get_audio_path().parent.joinpath('combined')
+    combined_dir = translation_db.utterances[0].get_audio_path().parent.joinpath('combined')
     combined_dir.mkdir(exist_ok=True)
 
-    unique_speakers = set([utter.speaker_id for utter in project.utterances])
+    unique_speakers = set([utter.speaker_id for utter in translation_db.utterances])
     project_audio_tracks = defaultdict(list)
     metadata = []
     start_sec = 0
-    for utterance in project.utterances:
+    for utterance in translation_db.utterances:
         utter_audio, sample_rate = sf.read(utterance.get_audio_path())
 
         assert utter_audio.ndim == 1
@@ -297,22 +298,22 @@ def combine(cross_project_name, lang, request: gr.Request):
         combined_waveform += all_channels[i]
     # normalize
     combined_waveform /= np.abs(combined_waveform).max()
-    combined_wav_path = combined_dir.joinpath(f'{project.cross_project.title}.wav')
+    combined_wav_path = combined_dir.joinpath(f'{translation_db.cross_project.title}.wav')
     sf.write(combined_wav_path, combined_waveform, cfg.tts.sample_rate)
 
     res = convert_wav_to_mp3_ffmpeg(combined_wav_path, combined_wav_path.with_suffix('.mp3'))
 
     db.close()
 
-    src_media_path = cross_proj.get_media_path()
+    src_media_path = translation_db.cross_project.get_media_path()
     if media_has_video_steam(src_media_path):
         # sample rate = 1 - will return result in seconds, neat trick:)
-        start_sec = timecode_to_timerange(project.utterances[0].timecode, 1)[0]
+        start_sec = timecode_to_timerange(translation_db.utterances[0].timecode, 1)[0]
         mux_media_path = src_media_path.with_suffix('.output.mp4')
         mux_video_audio(src_media_path, combined_wav_path, str(mux_media_path), start_sec)
-        res = [gr.Video.update(value=str(mux_media_path), visible=True), gr.Audio.update(visible=False)]
+        res = [gr.Audio.update(visible=False), gr.Video.update(value=str(mux_media_path), visible=True)]
     else:
-        res = [gr.Video.update(visible=False), gr.Audio.update(value=str(combined_wav_path), visible=True)]
+        res = [gr.Audio.update(value=str(combined_wav_path), visible=True), gr.Video.update(visible=False)]
 
     return res
 

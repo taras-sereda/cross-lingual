@@ -17,7 +17,7 @@ from utils import gradio_read_audio_data
 from config import cfg
 from . import schemas, crud
 from .database import SessionLocal
-from .models import Utterance
+from .models import Utterance, CrossProject
 
 stt_model = whisper.load_model(cfg.stt.model_size)
 diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_auth_token=cfg.diarization.auth_token)
@@ -132,23 +132,27 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
         row = f'{spkr}: {seg_duration}\n'
         detected_spkrs += row
     results.append(detected_spkrs)
+    results.extend(add_src_media_components(cross_project, media_link))
+    return results
 
+
+def add_src_media_components(cross_project: CrossProject, media_link: str):
+    res = []
     if len(media_link) > 0:
         iframe_val = get_youtube_embed_code(media_link)
-        results.append(gr.HTML.update(value=iframe_val))
-        results.append(gr.Audio.update(visible=False))
-        results.append(gr.Video.update(visible=False))
+        res.append(gr.HTML.update(value=iframe_val))
+        res.append(gr.Audio.update(visible=False))
+        res.append(gr.Video.update(visible=False))
     else:
-        results.append(gr.HTML.update(visible=False))
+        res.append(gr.HTML.update(visible=False))
         media_path = cross_project.get_media_path()
         if media_has_video_steam(media_path):
-            results.append(gr.Audio.update(visible=False))
-            results.append(gr.Video.update(visible=True, value=str(media_path)))
+            res.append(gr.Audio.update(visible=False))
+            res.append(gr.Video.update(visible=True, value=str(media_path)))
         else:
-            results.append(gr.Audio.update(visible=True, value=str(media_path)))
-            results.append(gr.Video.update(visible=False))
-
-    return results
+            res.append(gr.Audio.update(visible=True, value=str(media_path)))
+            res.append(gr.Video.update(visible=False))
+    return res
 
 
 def load_transcript(project_name: str, request: gr.Request) -> list:
