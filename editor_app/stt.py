@@ -15,9 +15,9 @@ from string_utils import validate_and_preprocess_title
 from utils import compute_string_similarity, get_user_from_request
 from utils import gradio_read_audio_data
 from config import cfg
-from . import schemas, crud
-from .database import SessionLocal
-from .models import Utterance, CrossProject
+from db import crud, schemas
+from db.database import SessionLocal
+from db.models import Utterance, CrossProject
 
 stt_model = whisper.load_model(cfg.stt.model_size)
 diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_auth_token=cfg.diarization.auth_token)

@@ -20,10 +20,10 @@ from string_utils import validate_and_preprocess_title
 from utils import compute_string_similarity, split_on_raw_utterances, time_re, normalize_text, \
     find_single_repetition, get_user_from_request
 from datatypes import RawUtterance
-from . import schemas, crud
+from db import crud, schemas
 from .common import get_speakers
-from .database import SessionLocal
-from .models import Utterance, Translation
+from db.database import SessionLocal
+from db.models import Utterance, Translation
 from .stt import stt_model, compute_and_store_score, get_or_compute_score, calculate_project_score
 
 tts_model = TextToSpeech()

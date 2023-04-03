@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 from tortoise.utils.audio import load_audio
 
 from config import cfg
-from editor_app import crud
-from editor_app.database import SessionLocal
-from editor_app.models import User
+from db import crud
+from db.database import SessionLocal
+from db.models import User
 from utils import get_user_from_request, raw_speaker_re
 
 

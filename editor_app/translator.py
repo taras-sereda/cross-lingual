@@ -5,8 +5,8 @@ import gradio as gr
 from sqlalchemy.orm import Session
 
 from config import cfg
-from editor_app import crud, schemas
-from editor_app.database import SessionLocal
+from db import crud, schemas
+from db.database import SessionLocal
 from editor_app.common import get_cross_projects
 from editor_app.stt import load_transcript
 from string_utils import validate_and_preprocess_title

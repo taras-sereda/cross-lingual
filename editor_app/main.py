@@ -3,8 +3,8 @@ from fastapi.responses import HTMLResponse
 from gradio import routes
 from sqlalchemy.orm import Session
 
-from . import crud, models, schemas
-from .database import SessionLocal, engine
+from db import crud, models, schemas
+from db.database import SessionLocal, engine
 
 from .editor2 import submitter, editor
 from .transcriber import transcriber

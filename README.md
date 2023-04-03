@@ -4,7 +4,7 @@ Future ideas:
 
 - [ ] Add source separation model to get only vocals track. Spliter as a base line should be ok
 - [ ] Send email when project is ready
-- [ ] Create fully automatic pipeline. Single page: Project name, youtube link.
+- [x] Create fully automatic pipeline. Single page: Project name, youtube link.
 - [ ] Optimize whisper and tortoise. It should be possible to reduce memory consumption 4-5x!
 - [ ] If youtube video already has subs in target language. Then use subs for TTS. No need to run ASR, translation. We'll only need to extract speaker's voice. Also as a baseline we can do synethsis with a single default voice.
 - [ ] Logging
