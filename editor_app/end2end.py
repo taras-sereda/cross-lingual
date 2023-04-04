@@ -1,4 +1,8 @@
+import datetime
+
+import gspread
 import gradio as gr
+import numpy as np
 
 from sqlalchemy.orm import Session
 
@@ -10,6 +14,7 @@ from editor_app.translator import gradio_translate, save_translation
 from db import crud
 from media_utils import get_youtube_embed_code
 from utils import get_user_from_request
+from datatypes import Cells
 
 
 def end2end_pipeline(file, media_link, project_name, src_lang, tgt_lang, options, request: gr.Request):
@@ -52,6 +57,43 @@ def load_src_and_tgt(cross_project_name, media_link, tgt_lang, request: gr.Reque
     return res
 
 
+def run_bulk_processing(options, request: gr.Request):
+    gc = gspread.service_account()
+    sh = gc.open("cross-lingual-bulk-demos")
+
+    data = np.array(sh.sheet1.get_all_values())
+    for idx, row in enumerate(data):
+        row_idx = idx + 1
+
+        src_url_idx = Cells.A.value
+        tgt_url_idx = Cells.C.value
+        date_coll_idx = Cells.D.value
+        status_coll_idx = Cells.E.value
+
+        row_status = row[status_coll_idx - 1]
+        if row_status:
+            continue
+
+        file = None
+        media_link = row[src_url_idx - 1]
+        import uuid
+        project_name = f"bulk_project_{str(uuid.uuid4())}"
+        src_lang = ""
+        tgt_lang = "EN-US"
+
+        output = end2end_pipeline(file, media_link, project_name, src_lang, tgt_lang, options, request)
+        print(output[-1])
+        output_iframe_val = output[-1]["value"]
+
+        import re
+        tgt_youtube_link = re.search('src="(.+?)"', output_iframe_val).group(1)
+        assert tgt_youtube_link
+
+        sh.sheet1.update_cell(row_idx, tgt_url_idx, tgt_youtube_link)
+        sh.sheet1.update_cell(row_idx, date_coll_idx, str(datetime.datetime.now()))
+        sh.sheet1.update_cell(row_idx, status_coll_idx, "Done")
+
+
 with gr.Blocks() as e2e:
     with gr.Row() as row0:
         with gr.Column(scale=1, variant='panel') as col0:
@@ -70,6 +112,7 @@ with gr.Blocks() as e2e:
             with gr.Row():
                 load_button = gr.Button(value="Load")
                 go_button = gr.Button(value="CrossLingualize 👾")
+                bulk_button = gr.Button(value="Bulk processing")
 
         with gr.Column(scale=1) as col1:
             src_iframe = gr.HTML(label='source youtube video')
@@ -90,6 +133,10 @@ with gr.Blocks() as e2e:
             load_src_and_tgt,
             inputs=[project_name, media_link, tgt_lang],
             outputs=[src_iframe, src_audio, src_video, tgt_audio, tgt_video])
+
+        bulk_button.click(
+            run_bulk_processing,
+            inputs=[options])
 
     e2e.load(get_cross_projects, outputs=[user_projects])
 
