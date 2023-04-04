@@ -98,6 +98,8 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
                                                  language=language)
         seg_res = stt_model.transcribe(seg_wav_16k, **decode_options.__dict__)
         text = seg_res['text']
+        if len(text) == 0:
+            continue
         lang = seg_res['language']
         segments.append([seg, speaker, text, lang])
         res_text += f"{seg}\n{{{speaker}}}\n{text}\n\n"
