@@ -1,7 +1,6 @@
 import os
 import shutil
 import subprocess
-import uuid
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -10,6 +9,7 @@ import requests
 from pytube import YouTube
 
 from config import cfg
+from string_utils import get_random_string
 
 ffmpeg_path = shutil.which('ffmpeg')
 
@@ -113,7 +113,7 @@ def download_youtube_media(url, output_dir) -> Path:
     video = yt.streams.filter(progressive=True, file_extension='mp4').first()
 
     # Download the video
-    filename = str(uuid.uuid4())
+    filename = get_random_string()
     video_file = video.download(output_dir, filename)
 
     return Path(video_file)
@@ -140,7 +140,7 @@ def download_media(url: str, save_path: Path) -> bool:
 
         # If a file name was not extracted, generate a random one
         if not file_name:
-            file_name = str(uuid.uuid4())
+            file_name = get_random_string()
 
         # Construct the full file path by appending the file name to the save path
         full_file_path = save_path.joinpath(file_name)

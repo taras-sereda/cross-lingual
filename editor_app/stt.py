@@ -1,6 +1,5 @@
 import shutil
 import tempfile
-import uuid
 from collections import Counter
 from datetime import datetime
 
@@ -11,7 +10,7 @@ from pyannote.audio import Pipeline
 from sqlalchemy.orm import Session
 
 from media_utils import download_youtube_media, extract_and_resample_audio_ffmpeg, get_youtube_embed_code, media_has_video_steam
-from string_utils import validate_and_preprocess_title
+from string_utils import validate_and_preprocess_title, get_random_string
 from utils import compute_string_similarity, get_user_from_request
 from utils import gradio_read_audio_data
 from config import cfg
@@ -49,7 +48,7 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
         name = tmp_media_path.name
     elif input_media is not None:
         tmp_media_path = input_media.name
-        name = str(uuid.uuid4())
+        name = get_random_string()
     else:
         raise Exception(f"either media_link or media file should be provided")
 

@@ -20,6 +20,7 @@ punctuation_re = re.compile(r"[^\w\s]")
 acronym_re = re.compile(r"[A-Z]{2,}")
 email_re = re.compile(r"\w+@\w+\.\w+")
 multi_space_re = re.compile(r" +")
+youtube_url_re = re.compile(r'src="(.+?)"')
 
 
 def split_on_speaker_change(raw_text: str):
@@ -162,3 +163,10 @@ def get_user_from_request(reqeust: gr.Request) -> str:
     if not reqeust:
         raise Exception(f"Access denied!")
     return reqeust.username
+
+
+def build_youtube_link_from_iframe(iframe: str):
+    youtube_id = re.search(youtube_url_re, iframe).group(1).split("/")[-1]
+    assert youtube_id
+
+    return f"https://www.youtube.com/watch?v={youtube_id}"

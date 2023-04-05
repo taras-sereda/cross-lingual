@@ -13,7 +13,8 @@ from editor_app.stt import transcribe, save_transcript, add_src_media_components
 from editor_app.translator import gradio_translate, save_translation
 from db import crud
 from media_utils import get_youtube_embed_code
-from utils import get_user_from_request
+from string_utils import get_random_string
+from utils import get_user_from_request, build_youtube_link_from_iframe
 from datatypes import Cells
 
 
@@ -76,19 +77,12 @@ def run_bulk_processing(options, request: gr.Request):
 
         file = None
         media_link = row[src_url_idx - 1]
-        import uuid
-        project_name = f"bulk_project_{str(uuid.uuid4())}"
+        project_name = f"bulk_project_{get_random_string()}"
         src_lang = ""
         tgt_lang = "EN-US"
 
         output = end2end_pipeline(file, media_link, project_name, src_lang, tgt_lang, options, request)
-        print(output[-1])
-        output_iframe_val = output[-1]["value"]
-
-        import re
-        tgt_youtube_link = re.search('src="(.+?)"', output_iframe_val).group(1)
-        assert tgt_youtube_link
-
+        tgt_youtube_link = build_youtube_link_from_iframe(output[-1]["value"])
         sh.sheet1.update_cell(row_idx, tgt_url_idx, tgt_youtube_link)
         sh.sheet1.update_cell(row_idx, date_coll_idx, str(datetime.datetime.now()))
         sh.sheet1.update_cell(row_idx, status_coll_idx, "Done")
