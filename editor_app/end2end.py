@@ -12,10 +12,11 @@ from editor_app.common import get_cross_projects
 from editor_app.stt import transcribe, save_transcript, add_src_media_components
 from editor_app.translator import gradio_translate, save_translation
 from db import crud
-from media_utils import get_youtube_embed_code
+from media_utils import get_youtube_embed_code, download_media, download_rss, media_extensions
+from rss_utils import get_audio_link
 from string_utils import get_random_string
 from utils import get_user_from_request, build_youtube_link_from_iframe
-from datatypes import Cells
+from datatypes import Cells, PseudoFile
 
 
 def end2end_pipeline(file, media_link, project_name, src_lang, tgt_lang, options, request: gr.Request):
@@ -75,13 +76,29 @@ def run_bulk_processing(options, request: gr.Request):
         if row_status:
             continue
 
-        file = None
         media_link = row[src_url_idx - 1]
+
+        file, youtube_link = None, None
+        try:
+            if any(ext in media_link for ext in media_extensions):
+                file_path = download_media(media_link, save_path="/tmp")
+                file = PseudoFile(name=file_path)
+            elif 'youtube' in media_link:
+                youtube_link = media_link
+            else:
+                rss_file_path = download_rss(media_link, save_path="/tmp")
+                audio_url = get_audio_link(rss_file_path)
+                file_path = download_media(audio_url, save_path="/tmp")
+                file = PseudoFile(name=file_path)
+        except:
+            sh.sheet1.update_cell(row_idx, status_coll_idx, "Failed")
+            raise ValueError(f"Unrecognized media source {media_link}")
+
         project_name = f"bulk_project_{get_random_string()}"
         src_lang = ""
         tgt_lang = "EN-US"
 
-        output = end2end_pipeline(file, media_link, project_name, src_lang, tgt_lang, options, request)
+        output = end2end_pipeline(file, youtube_link, project_name, src_lang, tgt_lang, options, request)
         tgt_youtube_link = build_youtube_link_from_iframe(output[-1]["value"])
         sh.sheet1.update_cell(row_idx, tgt_url_idx, tgt_youtube_link)
         sh.sheet1.update_cell(row_idx, date_coll_idx, str(datetime.datetime.now()))

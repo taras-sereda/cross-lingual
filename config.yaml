@@ -37,3 +37,6 @@ demo:
   duration_sec: 120
   extra_dur_sec: 2
   ad_offset_sec: 120
+
+assets:
+  default_video_path: "static/cross-lingual-logo.mp4"

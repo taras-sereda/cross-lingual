@@ -306,14 +306,17 @@ def combine(cross_project_name, lang, request: gr.Request):
     db.close()
 
     src_media_path = translation_db.cross_project.get_media_path()
+    mux_media_path = src_media_path.with_suffix('.output.mp4')
     if media_has_video_steam(src_media_path):
         # sample rate = 1 - will return result in seconds, neat trick:)
         start_sec = timecode_to_timerange(translation_db.utterances[0].timecode, 1)[0]
-        mux_media_path = src_media_path.with_suffix('.output.mp4')
         mux_video_audio(src_media_path, combined_wav_path, str(mux_media_path), start_sec)
-        res = [gr.Audio.update(visible=False), gr.Video.update(value=str(mux_media_path), visible=True)]
     else:
-        res = [gr.Audio.update(value=str(combined_wav_path), visible=True), gr.Video.update(visible=False)]
+        default_media_path = cfg.assets.default_video_path
+        mux_video_audio(default_media_path, combined_wav_path, str(mux_media_path), 0)
+
+    res = [gr.Audio.update(value=str(combined_wav_path), visible=True),
+           gr.Video.update(value=str(mux_media_path), visible=True)]
 
     return res
 

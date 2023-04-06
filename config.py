@@ -21,3 +21,5 @@ if torch.cuda.is_available():
     cfg.tts.preset = 'standard'
 else:
     cfg.tts.preset = 'ultra_fast'
+
+cfg.assets.default_video_path = prj_root.joinpath(cfg.assets.default_video_path)

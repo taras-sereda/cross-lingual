@@ -1,5 +1,5 @@
 import enum
-
+from collections import namedtuple
 from dataclasses import dataclass
 
 
@@ -21,3 +21,5 @@ class RawUtterance:
     timecode: str
     speaker: str
     text: str
+
+PseudoFile = namedtuple("PseudoFile", ["name"])

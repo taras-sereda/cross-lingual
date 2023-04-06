@@ -43,7 +43,7 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
     cross_project = crud.get_cross_project_by_title(db, project_name, user.id, ensure_exists=False)
     if cross_project is not None:
         raise Exception(f"CrossProject {project_name} already exists, pick another name")
-    if len(media_link) > 0:
+    if media_link is not None:
         tmp_media_path = download_youtube_media(media_link, tempfile.gettempdir())
         name = tmp_media_path.name
     elif input_media is not None:
@@ -137,9 +137,9 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
     return results
 
 
-def add_src_media_components(cross_project: CrossProject, media_link: str):
+def add_src_media_components(cross_project: CrossProject, media_link: str | None):
     res = []
-    if len(media_link) > 0:
+    if media_link is not None:
         iframe_val = get_youtube_embed_code(media_link)
         res.append(gr.HTML.update(value=iframe_val))
         res.append(gr.Audio.update(visible=False))

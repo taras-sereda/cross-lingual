@@ -13,6 +13,29 @@ from string_utils import get_random_string
 
 ffmpeg_path = shutil.which('ffmpeg')
 
+audio_extensions = [
+    '.mp3',
+    '.wav',
+    '.aac',
+    '.flac',
+    '.wma',
+    '.ogg',
+    '.m4a'
+]
+
+video_extensions = [
+    '.mp4',
+    '.avi',
+    '.mkv',
+    '.mov',
+    '.wmv',
+    '.flv',
+    '.webm',
+    '.m4v'
+]
+
+media_extensions = audio_extensions + video_extensions
+
 
 def media_has_video_steam(media_path: Path) -> bool:
     probe = ffmpeg.probe(media_path)
@@ -26,7 +49,7 @@ def get_stream_duration(media_path, stream_type='audio'):
     return round(float(stream['duration'])) if stream is not None else None
 
 
-def mux_video_audio(video_path: Path, audio_path: Path, output_path: str, video_offset_sec: int):
+def mux_video_audio(video_path: Path, audio_path: Path, output_path: str, video_offset_sec: int = 0):
     """Maps the video stream from one file and the audio stream from another file
        and saves the output to a new file using ffmpeg.
     Raises:
@@ -53,12 +76,7 @@ def mux_video_audio(video_path: Path, audio_path: Path, output_path: str, video_
 
 
 def get_youtube_embed_code(youtube_link) -> str:
-    """
-    Constructs an embed URL for a YouTube video and returns the corresponding iframe code.
 
-    Returns:
-        str: The iframe code for the YouTube video.
-    """
     yt = YouTube(youtube_link)
     iframe_code = f'<iframe width="560" height="315" src="{yt.embed_url}" frameborder="0" allowfullscreen></iframe>'
     return iframe_code
@@ -119,39 +137,32 @@ def download_youtube_media(url, output_dir) -> Path:
     return Path(video_file)
 
 
-def download_media(url: str, save_path: Path) -> bool:
+def download_media(url: str, save_path: str) -> str | None:
     """
     Downloads media file from the specified URL and saves it to the specified file path.
-
-    Args:
-        url: The URL of the media file to download.
-        save_path: The file path where the media file will be saved.
-
-    Returns:
-        bool: True if the download was successful, False otherwise.
     """
     try:
-        # Make a GET request to the URL to download the media file
         response = requests.get(url, stream=True)
         response.raise_for_status()
 
         # Extract the file name from the URL
         file_name = os.path.basename(urlparse(url).path)
-
-        # If a file name was not extracted, generate a random one
         if not file_name:
             file_name = get_random_string()
+        full_file_path = os.path.join(save_path, file_name)
 
-        # Construct the full file path by appending the file name to the save path
-        full_file_path = save_path.joinpath(file_name)
-
-        # Save the media file to disk
         with open(full_file_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
-        print(full_file_path)
-        return True
+        return full_file_path
 
     except requests.exceptions.RequestException as e:
         print(f"Failed to download media file from {url}: {str(e)}")
-        return False
+
+
+def download_rss(url: str, save_path: str):
+    response = requests.get(url)
+    filename = os.path.join(save_path, get_random_string())
+    with open(filename, 'wb') as f:
+        f.write(response.content)
+    return filename
