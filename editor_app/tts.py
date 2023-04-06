@@ -145,12 +145,10 @@ def playground_read(text, speaker_name, user_email):
 
 def load_translation(cross_project_name: str, lang: str, request: gr.Request):
     user_email = get_user_from_request(request)
-    cross_project_name = validate_and_preprocess_title(cross_project_name)
     db = SessionLocal()
-    user = crud.get_user_by_email(db, user_email)
-    translation_project = crud.get_translation_by_title_and_lang(db, cross_project_name, lang, user.id)
-    speakears = get_speakers(user_email, cross_project_name)
-    return cross_project_name, translation_project.text, speakears
+    translation_db = get_translation_wrapped(cross_project_name, lang, db, user_email)
+    speakers = get_speakers(user_email, cross_project_name)
+    return cross_project_name, translation_db.text, speakers
 
 
 def add_tgt_media_components(translation):

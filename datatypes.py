@@ -8,12 +8,14 @@ from dataclasses import dataclass
 # C - generated youtube URL
 # D - date processed
 # E - status
+# F - score
 class Cells(enum.Enum):
     A = 1
     B = 2
     C = 3
     D = 4
     E = 5
+    F = 6
 
 
 @dataclass

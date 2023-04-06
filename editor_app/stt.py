@@ -219,7 +219,7 @@ def calculate_project_score(db, project) -> (float, list):
     for utterance in project.utterances:
         scores.append(get_or_compute_score(db, utterance))
     if len(scores) == 0:
-        mean = 0
+        mean = 0.0
     else:
         mean = sum(scores) / len(scores)
     return mean, scores
