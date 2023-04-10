@@ -21,6 +21,7 @@ acronym_re = re.compile(r"[A-Z]{2,}")
 email_re = re.compile(r"\w+@\w+\.\w+")
 multi_space_re = re.compile(r" +")
 youtube_url_re = re.compile(r'src="(.+?)"')
+youtube_re = re.compile(r"youtu\.?be")
 
 
 def split_on_speaker_change(raw_text: str):

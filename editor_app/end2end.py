@@ -1,4 +1,5 @@
 import datetime
+import re
 
 import gspread
 import gradio as gr
@@ -15,7 +16,7 @@ from media_utils import get_youtube_embed_code, download_media, download_rss, me
 from rss_utils import get_audio_link
 from network_utils import upload_youtube_video
 from string_utils import get_random_string
-from utils import get_user_from_request, build_youtube_link_from_iframe
+from utils import get_user_from_request, build_youtube_link_from_iframe, youtube_re
 from datatypes import Cells, PseudoFile
 
 
@@ -35,7 +36,7 @@ def end2end_pipeline(file, media_link, project_name, src_lang, tgt_lang, options
     output_media_link = upload_youtube_video(translation_db)
     if output_media_link:
         iframe_val = get_youtube_embed_code(output_media_link)
-        res.append(gr.HTML.update(value=iframe_val))
+        res.append(gr.HTML.update(value=iframe_val, visible=True))
     else:
         res.append(gr.HTML.update(visible=False))
 
@@ -78,7 +79,7 @@ def run_bulk_processing(options, request: gr.Request):
             if any(ext in media_link for ext in media_extensions):
                 file_path = download_media(media_link, save_path="/tmp")
                 file = PseudoFile(name=file_path)
-            elif 'youtube' in media_link:
+            elif re.search(youtube_re, media_link):
                 youtube_link = media_link
             else:
                 rss_file_path = download_rss(media_link, save_path="/tmp")
@@ -92,7 +93,9 @@ def run_bulk_processing(options, request: gr.Request):
             *_, gr_tgt_iframe, gr_prj_score = end2end_pipeline(file, youtube_link, project_name, src_lang, tgt_lang, options, request)
         except:
             sh.sheet1.update_cell(row_idx, status_coll_idx, "Failed")
-            raise ValueError(f"Unrecognized media source {media_link}")
+            # raise ValueError(f"Unrecognized media source {media_link}")
+            print(f"Unrecognized media source {media_link}")
+            continue
 
         sh.sheet1.update_cell(row_idx, tgt_url_idx, build_youtube_link_from_iframe(gr_tgt_iframe["value"]))
         sh.sheet1.update_cell(row_idx, date_coll_idx, str(datetime.datetime.now()))
@@ -121,13 +124,13 @@ with gr.Blocks() as e2e:
                 bulk_button = gr.Button(value="Bulk processing")
 
         with gr.Column(scale=1) as col1:
-            src_iframe = gr.HTML(label='source youtube video')
+            src_iframe = gr.HTML(visible=False, label='source youtube video')
             src_audio = gr.Audio(visible=False)
             src_video = gr.Video(visible=False)
 
             tgt_audio = gr.Audio(visible=False)
             tgt_video = gr.Video(visible=False)
-            tgt_iframe = gr.HTML(label='CrossLingual youtube video')
+            tgt_iframe = gr.HTML(visible=False, label='CrossLingual youtube video')
             tgt_score = gr.Number(visible=False)
 
         go_button.click(

@@ -18,8 +18,12 @@ from db import crud, schemas
 from db.database import SessionLocal
 from db.models import Utterance, CrossProject
 
-stt_model = whisper.load_model(cfg.stt.model_size)
-diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_auth_token=cfg.diarization.auth_token)
+if cfg.general.sysname == "Darwin":
+    stt_model = None
+    diarization_model = None
+else:
+    stt_model = whisper.load_model(cfg.stt.model_size)
+    diarization_model = Pipeline.from_pretrained(cfg.diarization.model_name, use_auth_token=cfg.diarization.auth_token)
 
 
 def transcribe(input_media, media_link, project_name: str, language: str, options: list, request: gr.Request):
@@ -139,11 +143,9 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
 
 def add_src_media_components(cross_project: CrossProject, media_link: str | None):
     res = []
-    if media_link is not None:
+    if media_link:
         iframe_val = get_youtube_embed_code(media_link)
-        res.append(gr.HTML.update(value=iframe_val))
-        res.append(gr.Audio.update(visible=False))
-        res.append(gr.Video.update(visible=False))
+        res.append(gr.HTML.update(visible=True, value=iframe_val))
     else:
         res.append(gr.HTML.update(visible=False))
         media_path = cross_project.get_media_path()

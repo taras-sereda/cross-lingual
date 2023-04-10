@@ -26,8 +26,12 @@ from db.database import SessionLocal
 from db.models import Utterance, Translation
 from .stt import stt_model, compute_and_store_score, get_or_compute_score, calculate_project_score
 
-tts_model = TextToSpeech()
-aligner = Wav2VecAlignment()
+if cfg.general.sysname == "Darwin":
+    tts_model = None
+    aligner = None
+else:
+    tts_model = TextToSpeech()
+    aligner = Wav2VecAlignment()
 
 
 def read(title, lang, raw_text, request: gr.Request=None):

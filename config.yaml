@@ -1,3 +1,6 @@
+general:
+  sysname: ???
+
 db:
   name: 'test.db'
   data_root: ''

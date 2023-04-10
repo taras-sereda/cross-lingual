@@ -6,9 +6,10 @@ from omegaconf import OmegaConf
 
 prj_root = Path(__file__).parent
 cfg = OmegaConf.load(prj_root.joinpath('config.yaml'))
+cfg.general.sysname = os.uname().sysname
 
 if not cfg.db.data_root:
-    if os.uname().sysname == 'Darwin':
+    if cfg.general.sysname == 'Darwin':
         user = os.environ.get('USER')
         cfg.db.data_root = Path(f"/Users/{user}/crosslingual-data/user_data")
     else:
