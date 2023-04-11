@@ -25,7 +25,7 @@ with gr.Blocks() as transcriber:
             speakers = gr.Text(label='speakers')
             text = gr.Text(label='Text transcription', interactive=True)
             save_transcript_button = gr.Button(value='save')
-            iframe = gr.HTML(label='youtube video')
+            iframe = gr.HTML(visible=False, label='youtube video')
             audio = gr.Audio(visible=False)
             video = gr.Video(visible=False)
 

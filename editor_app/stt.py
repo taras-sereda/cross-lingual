@@ -154,13 +154,14 @@ def add_src_media_components(cross_project: CrossProject, media_link: str | None
         res.append(gr.HTML.update(visible=True, value=iframe_val))
     else:
         res.append(gr.HTML.update(visible=False))
-        media_path = cross_project.get_media_path()
-        if media_has_video_steam(media_path):
-            res.append(gr.Audio.update(visible=False))
-            res.append(gr.Video.update(visible=True, value=str(media_path)))
-        else:
-            res.append(gr.Audio.update(visible=True, value=str(media_path)))
-            res.append(gr.Video.update(visible=False))
+
+    media_path = cross_project.get_media_path()
+    if media_has_video_steam(media_path):
+        res.append(gr.Audio.update(visible=False))
+        res.append(gr.Video.update(visible=True, value=str(media_path)))
+    else:
+        res.append(gr.Audio.update(visible=True, value=str(media_path)))
+        res.append(gr.Video.update(visible=False))
     return res
 
 
