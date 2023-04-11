@@ -155,6 +155,8 @@ def gradio_read_audio_data(audio_data: tuple[int, np.ndarray] | str | Path) -> (
     if isinstance(audio_data, Path | str):
         import soundfile as sf
         waveform, sample_rate = sf.read(audio_data, dtype=str(dtype).split('.')[-1])
+        if len(waveform.shape) == 2:
+            waveform = waveform[:, 0]
     else:
         sample_rate, waveform = audio_data
     return torch.from_numpy(waveform).to(dtype), sample_rate

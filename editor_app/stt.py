@@ -9,7 +9,7 @@ import whisper
 from pyannote.audio import Pipeline
 from sqlalchemy.orm import Session
 
-from media_utils import download_youtube_media, extract_and_resample_audio_ffmpeg, get_youtube_embed_code, media_has_video_steam
+from media_utils import download_youtube_media, get_youtube_embed_code, media_has_video_steam, extract_audio, demucs_audio, resample_audio
 from string_utils import validate_and_preprocess_title, get_random_string
 from utils import compute_string_similarity, get_user_from_request
 from utils import gradio_read_audio_data
@@ -37,7 +37,7 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
         demo_run = True
     if 'Save speakers' in options:
         save_speakers = True
-    if len(language) == 0:
+    if language == '':
         language = None
     user_email = get_user_from_request(request)
     project_name = validate_and_preprocess_title(project_name)
@@ -63,11 +63,17 @@ def transcribe(input_media, media_link, project_name: str, language: str, option
     cross_project_data = schemas.CrossProjectCreate(title=project_name, media_name=name)
     cross_project = crud.create_cross_project(db, cross_project_data, user.id)
     media_path = shutil.copy(tmp_media_path, cross_project.get_media_path())
+    wav_path = cross_project.get_raw_wav_path()
+
+    res_extract_audio = extract_audio(media_path, wav_path)
+    res_demucs = demucs_audio(wav_path)
+
+    get_vocals_wav_path = cross_project.get_vocals_wav_path()
     wav_16k_path = cross_project.get_raw_wav_path(sample_rate=cfg.stt.sample_rate)
     wav_22k_path = cross_project.get_raw_wav_path(sample_rate=cfg.tts.spkr_emb_sample_rate)
 
-    res0 = extract_and_resample_audio_ffmpeg(media_path, wav_16k_path, cfg.stt.sample_rate)
-    res1 = extract_and_resample_audio_ffmpeg(media_path, wav_22k_path, cfg.tts.spkr_emb_sample_rate)
+    res_resample_16k = resample_audio(get_vocals_wav_path, wav_16k_path, sample_rate=cfg.stt.sample_rate)
+    res_resample_22k = resample_audio(get_vocals_wav_path, wav_22k_path, sample_rate=cfg.tts.spkr_emb_sample_rate)
 
     waveform_16k, _ = gradio_read_audio_data(wav_16k_path)
     waveform_22k, _ = gradio_read_audio_data(wav_22k_path)

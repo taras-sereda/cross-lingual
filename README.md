@@ -2,7 +2,7 @@
 
 Future ideas:
 
-- [ ] Add source separation model to get only vocals track. Spliter as a base line should be ok
+- [x] Add source separation model to get only vocals track. Splitter as a base line should be ok.
 - [ ] Send email when project is ready
 - [x] Create fully automatic pipeline. Single page: Project name, youtube link.
 - [ ] Optimize whisper and tortoise. It should be possible to reduce memory consumption 4-5x!

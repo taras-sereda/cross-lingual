@@ -11,7 +11,8 @@ from pytube import YouTube
 from config import cfg
 from string_utils import get_random_string
 
-ffmpeg_path = shutil.which('ffmpeg')
+ffmpeg_path = shutil.which("ffmpeg")
+demucs_path = shutil.which("demucs")
 
 audio_extensions = [
     '.mp3',
@@ -75,11 +76,32 @@ def mux_video_audio(video_path: Path, audio_path: Path, output_path: str, video_
             raise e
 
 
+def extract_audio(media_path: Path, raw_audio_path: Path):
+    in_media = ffmpeg.input(media_path)
+    in_media.audio.output(str(raw_audio_path), **{'ac': 1}).run()
+
+
+def resample_audio(audio_path: Path, resample_audio_path: Path, sample_rate: int):
+    audio = ffmpeg.input(audio_path).audio
+    ffmpeg.output(audio, str(resample_audio_path), **{'ar': sample_rate}).run()
+
+
 def get_youtube_embed_code(youtube_link) -> str:
 
     yt = YouTube(youtube_link)
     iframe_code = f'<iframe width="560" height="315" src="{yt.embed_url}" frameborder="0" allowfullscreen></iframe>'
     return iframe_code
+
+
+def demucs_audio(audio_path: Path):
+    command = [
+        f"{demucs_path}",
+        "--two-stems", "vocals",
+        "--out", f"{audio_path.parent}",
+        "--filename", "{track}.{stem}.{ext}",
+        f"{audio_path}"]
+    res = subprocess.run(command, check=True)
+    return res
 
 
 def convert_wav_to_mp3_ffmpeg(in_path: Path, out_path: Path):

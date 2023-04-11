@@ -30,3 +30,4 @@ google-auth-httplib2
 simple_youtube_api
 gspread
 feedparaser
+demucs

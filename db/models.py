@@ -41,8 +41,17 @@ class CrossProject(Base):
     def get_media_path(self) -> pathlib.Path:
         return self.get_data_root().joinpath(self.media_name)
 
-    def get_raw_wav_path(self, sample_rate) -> pathlib.Path:
-        return self.get_media_path().with_suffix(f".{sample_rate}.wav")
+    def get_raw_wav_path(self, sample_rate=None) -> pathlib.Path:
+        if sample_rate:
+            ext = f".{sample_rate}.wav"
+        else:
+            ext = ".wav"
+        return self.get_media_path().with_suffix(ext)
+
+    def get_vocals_wav_path(self) -> pathlib.Path:
+        vocals_name = f"{self.get_media_path().stem}.vocals.wav"
+        return self.get_media_path().parent.joinpath(f"htdemucs/{vocals_name}")
+
 
 
 class Transcript(Base):
