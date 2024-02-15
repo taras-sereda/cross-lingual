@@ -1,15 +1,6 @@
 # CrossLingual
 
-Future ideas:
-
-- [x] Add source separation model to get only vocals track. Splitter as a base line should be ok.
-- [ ] Send email when project is ready
-- [x] Create fully automatic pipeline. Single page: Project name, youtube link.
-- [ ] Optimize whisper and tortoise. It should be possible to reduce memory consumption 4-5x!
-- [ ] If youtube video already has subs in target language. Then use subs for TTS. No need to run ASR, translation. We'll only need to extract speaker's voice. Also as a baseline we can do synethsis with a single default voice.
-- [ ] Logging
-
-commands
+Commands
 1. list available subs for youtube video: `yt-dlp CxGs9E-QwEA  --list-subs`
 ```
 [info] Available subtitles for CxGs9E-QwEA:
