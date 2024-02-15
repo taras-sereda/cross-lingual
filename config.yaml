@@ -25,14 +25,14 @@ stt:
 
 diarization:
   model_name: "pyannote/speaker-diarization@2.1"
-  auth_token: "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"
+  auth_token: ${HF_AUTH_TOKEN}
 
 translation:
-  auth_token: "ec035bdb-9e90-810f-cfd3-2da51ee91ca2:fx"
+  auth_token: ${DEEPL_AUTH_TOKEN}
 
 podcastindex:
-  api_key: "8SKFTZXBN83JEX5M99UX"
-  api_secret: "YRteGrQ5HG4F4C8dk9HJQz8DzkPnDkKbuGsA5##G"
+  api_key: ${PODIDX_API_KEY}
+  api_secret: ${PODIDX_API_SECRET}
   db:
     name: "podcastindex_feeds.db"
 
